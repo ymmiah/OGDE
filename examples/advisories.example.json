@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "feed_id": "ogde-demo-synthetic",
+  "generated_at": "2026-10-30T00:00:00Z",
+  "expires_at": "2027-01-01T00:00:00Z",
+  "advisories": [
+    {
+      "id": "OGDE-DEMO-0001",
+      "title": "Synthetic test component requires attention",
+      "severity": "high",
+      "affected": [
+        {"purl": "pkg:pypi/ogde-synthetic-demo", "versions": ["0.1.0"]}
+      ],
+      "remediation": "This is a synthetic advisory for validation only. Do not interpret it as a real vulnerability.",
+      "references": []
+    }
+  ]
+}

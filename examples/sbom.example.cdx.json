@@ -1,0 +1,9 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "components": [
+    {"type": "library", "name": "ogde-synthetic-demo", "version": "0.1.0", "purl": "pkg:pypi/ogde-synthetic-demo@0.1.0"},
+    {"type": "library", "name": "unaffected-example", "version": "1.0.0", "purl": "pkg:pypi/unaffected-example@1.0.0"}
+  ]
+}
