@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OGDE — One Global Defence Ecosystem</title>
+  <meta name="description" content="OGDE is an open, neutral platform for verifiable cyber-defence intelligence. Inventories stay with the organisation that owns them.">
+  <link rel="icon" href="../assets/brand/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="../assets/brand/ogde-icon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="../assets/brand/ogde-icon-180.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="band"></div>
+  <a class="skip" href="#content">Skip to content</a>
+  <header>
+    <img src="../assets/brand/ogde-logo.svg" width="807" height="312" alt="OGDE — One Global Defence Ecosystem">
+    <p class="eyebrow">Cyber defence intelligence</p>
+    <h1>Verified intelligence in. A finding you can trust out.</h1>
+    <p class="lede">An open, neutral platform for sharing verifiable threat intelligence across organisations, especially those running critical infrastructure.</p>
+  </header>
+  <main id="content">
+    <section>
+      <h2>The loop</h2>
+      <p>OGDE publishes signed evidence. Each organisation verifies it, matches it against assets it already owns, and decides what to do. Inventories and decisions stay on that organisation’s own infrastructure.</p>
+      <ol class="steps">
+        <li><span>01 — In</span> A signed feed of advisories. A signature shows who published the record. It does not, by itself, make the claim true.</li>
+        <li><span>02 — Match</span> Compare that evidence with a local inventory: WordPress core, plugins and themes, plus Composer and npm lockfiles. Nothing is uploaded.</li>
+        <li><span>03 — Out</span> A finding with a confidence level, the evidence it came from, and a priority a person can challenge. OGDE does not change the system.</li>
+      </ol>
+    </section>
+    <section class="status">
+      <h2>Current status</h2>
+      <dl>
+        <dt>Published</dt>
+        <dd>v0.2.2 command-line preview in the <a href="https://github.com/ymmiah/OGDE">ymmiah/OGDE</a> repository. Signed advisory feeds, local matching, explainable human review.</dd>
+        <dt>In progress</dt>
+        <dd>v0.3, the verified loop: WordPress sites and CI/CD pipelines first. Specifications are in the repository. A local inventory command and a finding report are the first slice. TUF and Sigstore are specified and not yet implemented.</dd>
+        <dt>Not yet</dt>
+        <dd>A public feed, accounts, a dashboard, or any remote action on a customer system. The v0.3 pilot gate — five sites for four weeks, with a published false-positive rate — has not been met.</dd>
+      </dl>
+    </section>
+    <section>
+      <h2>Try the preview</h2>
+      <p>Install from a clone of the repository. The commands below stay on your machine. They do not send an inventory anywhere.</p>
+      <pre><code>python -m pip install -e .
+ogde inventory \
+  --wordpress examples/demo-site/wordpress \
+  --composer-lock examples/demo-site/composer.lock \
+  --package-lock examples/demo-site/package-lock.json \
+  --out .ogde-local/inventory.cdx.json
+
+ogde report \
+  --findings examples/findings.example.json \
+  --vex examples/vex.example.json \
+  --out .ogde-local/findings.json \
+  --markdown .ogde-local/findings.md</code></pre>
+      <p>Exit code 2 means a visible finding. That is expected for the synthetic example. Exit code 0 means none. Exit code 1 means the input was rejected. The older <code>assess</code> command is described in the <a href="https://github.com/ymmiah/OGDE/blob/main/docs/FEDERATION_V2.md">v0.2.2 walkthrough</a>.</p>
+    </section>
+    <section>
+      <h2>What this site does not do</h2>
+      <ul>
+        <li>No sign-in, no accounts and no cookies.</li>
+        <li>No analytics, no forms and no scripts.</li>
+        <li>No upload of inventories, findings or visitor data.</li>
+        <li>No claim that a signed feed, or this page, is proof of an attack.</li>
+      </ul>
+    </section>
+  </main>
+  <footer>
+    <p>Software in the repository is released under the MIT licence. Data-source terms, when a feed is published, are separate and are recorded in the repository.</p>
+    <p>
+      <a href="https://github.com/ymmiah/OGDE">Source</a>
+      · <a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">v0.3 status</a>
+      · <a href="https://github.com/ymmiah/OGDE/blob/main/SECURITY.md">Security</a>
+      · <a href="https://github.com/ymmiah/OGDE/blob/main/assets/brand/README.md">Brand</a>
+    </p>
+  </footer>
+</body>
+</html>

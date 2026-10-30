@@ -6,7 +6,7 @@
 
 **GitHub organisation/account:** `ymmiah`
 
-**Proposed GitHub repository:** `ymmiah/OGDE`
+**GitHub repository:** [ymmiah/OGDE](https://github.com/ymmiah/OGDE)
 
 **Tagline:** Defend locally. Verify globally. Recover together.
 

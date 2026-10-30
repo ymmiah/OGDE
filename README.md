@@ -1,38 +1,68 @@
-# OGDE — One Global Defence Ecosystem
+<p align="center">
+  <img src="assets/brand/ogde-logo.png" alt="OGDE — One Global Defence Ecosystem" width="480">
+</p>
 
-**Official short name: OGDE.** The mistaken ODGE spelling is retained only as a backwards-compatible Python import and CLI alias.
+**OGDE** (One Global Defence Ecosystem) is an open, neutral platform for sharing verifiable cyber-defence and threat intelligence across organisations, especially those running critical infrastructure.
 
 **Defend locally. Verify globally. Recover together.**
 
-> **v0.2.2 experimental developer preview:** signed federated advisory feeds, pinned trust anchors, local anti-rollback, CycloneDX software exposure matching, explainable policy decisions and optional offline KEV reference matching. No claims of universal protection or production readiness.
+> **Status:** v0.2.2 is published at [ymmiah/OGDE](https://github.com/ymmiah/OGDE). It is an experimental developer preview, not a production security control. The current phase is **v0.3, the verified loop**.
 
-## New in v0.2
+## v0.3 direction
 
-- `ogde trust-add` pins an independently verified publisher key to its signed feed identity.
-- `ogde assess` rejects tampered, expired, untrusted, replayed or equivocated advisory feeds, matches exact versions and produces auditable local results.
-- Source material and CVE descriptions are treated as **data, never executable instructions**.
-- `--fail-on P2` creates a fail-closed CI safety gate, but findings never trigger autonomous production modifications.
-- The optional KEV snapshot is unverified local input; matching a CVE does not prove exploitation.
-- Weekly GitHub Actions tests and Dependabot update proposals support sustainable continuous improvement.
+v0.3 has one job: prove a single trustworthy loop. Verified intelligence comes in, it is matched against an organisation’s own assets, and a finding comes out with a confidence level and the evidence behind it. The first assets are WordPress sites and CI/CD lockfiles. Seven gated phases follow that loop; a later phase does not start until the previous gate is met. The v0.3 gate is five pilot sites over four weeks and a published false-positive rate. That gate is not met.
 
-**Quick start:** see [Federated v2 full walkthrough](docs/FEDERATION_V2.md) and [autonomy roadmap](docs/ROADMAP_AUTONOMY.md).
+Started in this tree:
 
-## Core principles
+- The trust layer is specified in [docs/specs/trust.md](docs/specs/trust.md). TUF and Sigstore are not implemented. v0.2.2 Ed25519 feeds remain the working verifier.
+- `ogde inventory` builds a local CycloneDX inventory from a WordPress tree, `composer.lock` and `package-lock.json`. It keeps versions only and does not upload anything.
+- `ogde report` checks a local finding file, applies an OpenVEX statement, and writes a prioritised report. It does not fetch OSV, KEV, EPSS or Wordfence.
 
-1. **Local control:** never scan or change third-party systems.
-2. **Independent trust:** pin a verified publisher identity before accepting an advisory.
-3. **Truth over theatrics:** a valid signature authenticates the signer, not the advisory's claims.
-4. **Evidence-based decisions:** provide explainable reasons and limitations.
-5. **Fail-closed design:** reject missing trust, incompatible schemas, expired feeds and rollbacks.
-6. **Human approval:** no autonomous remediation.
+The public gateway is the static page in [`site/`](site/). It collects no data. Notes for **ogde.org** are in [site/README.md](site/README.md). Phase status and open decisions are in [docs/V0.3.md](docs/V0.3.md). Brand files and stable URLs are in [assets/brand/README.md](assets/brand/README.md).
 
-## Legacy v0.1 workflows
+## Try v0.2.2 and the v0.3 slice
 
-The existing `scan`, `scan-osv`, `verify`, `inventory-python`, `keygen`, `sign` and `verify-ledger` commands remain supported. The original [architecture](docs/ARCHITECTURE.md) covers legacy mode.
+```sh
+python -m pip install -e .
+python -m unittest discover -s tests -v
+
+mkdir -p .ogde-local
+ogde inventory \
+  --wordpress examples/demo-site/wordpress \
+  --composer-lock examples/demo-site/composer.lock \
+  --package-lock examples/demo-site/package-lock.json \
+  --out .ogde-local/inventory.cdx.json
+
+ogde report \
+  --findings examples/findings.example.json \
+  --vex examples/vex.example.json \
+  --out .ogde-local/findings.json \
+  --markdown .ogde-local/findings.md
+```
+
+`ogde report` exits 2 when a visible finding remains. The synthetic example does that on purpose. The v0.2.2 signed-feed walkthrough is [docs/FEDERATION_V2.md](docs/FEDERATION_V2.md).
+
+The historical `odge` import and command are aliases of `ogde`. There is no second implementation.
+
+## What v0.2.2 already does
+
+- `ogde trust-add` pins a publisher key that was checked out of band.
+- `ogde assess` rejects tampered, expired, untrusted, replayed or equivocated feeds, matches exact versions and writes a local result.
+- Advisory text is data. It is never executed.
+- `--fail-on P2` can fail a build. It never changes a production system.
+- An optional KEV snapshot is unverified local input. A match is not proof of exploitation.
+
+## Principles
+
+1. **Local control.** Do not scan or change someone else’s systems.
+2. **Independent trust.** Pin a publisher before accepting an advisory.
+3. **Truth over theatrics.** A valid signature authenticates the signer, not the claim.
+4. **Evidence.** Every finding should say why it is there, and what it cannot prove.
+5. **Fail closed.** Reject missing trust, bad schemas, expired feeds and rollbacks.
+6. **Human approval.** No autonomous remediation.
 
 ## Contributing and reporting
 
-Please read [SECURITY.md](SECURITY.md). Submit a minimal reproducer through GitHub private vulnerability reporting rather than publishing an exploit against an active system. Respect third-party authorisation and privacy.
+Please read [SECURITY.md](SECURITY.md). Report vulnerabilities privately. Do not publish an exploit against a live system.
 
-**Repository:** [ymmiah/OGDE](https://github.com/ymmiah/OGDE) (source publication pending). **Licence:** MIT.
-
+**Repository:** [ymmiah/OGDE](https://github.com/ymmiah/OGDE). **Licence:** MIT.

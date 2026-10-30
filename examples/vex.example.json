@@ -1,0 +1,16 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://example.invalid/ogde/vex/demo",
+  "author": "OGDE demo",
+  "timestamp": "2026-10-30T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {"name": "OGDE-SYNTHETIC-2"},
+      "products": [{"@id": "pkg:composer/ogde/synthetic-demo@1.2.3"}],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Synthetic statement. The vulnerable code is not in this demo."
+    }
+  ]
+}

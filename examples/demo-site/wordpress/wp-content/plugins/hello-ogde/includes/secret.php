@@ -1,0 +1,2 @@
+<?php
+// OGDE-DEMO-SECRET-CANARY

@@ -1,5 +1,7 @@
 # Practical autonomy — controlled by owners
 
+The ordering below is the v0.2 note. The current phase is the v0.3 verified loop in [V0.3.md](V0.3.md). That phase’s gate has to be met before a later phase starts.
+
 OGDE's automation is designed to perform **checks**, **propose changes** and **verify evidence**, not to self-propagate or autonomously control infrastructure.
 
 ## What is automated in this release

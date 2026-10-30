@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "findings": [
+    {
+      "schema_version": 1,
+      "finding_id": "F-wordpress",
+      "confidence": "confirmed",
+      "component": {
+        "purl": "pkg:wordpress/plugin/hello-ogde@1.0.0",
+        "name": "plugin/hello-ogde",
+        "version": "1.0.0"
+      },
+      "vulnerability": {"id": "OGDE-SYNTHETIC-1", "severity": "high"},
+      "signals": {"kev_listed": false, "epss": 0.2, "internet_exposed": true},
+      "affected": true,
+      "evidence": [
+        {
+          "source": "ogde",
+          "record_id": "synthetic-wordpress",
+          "digest_sha256": "d93b15c8c16c3101971948de450ecdc28a88bcbbb056246df0ac05b254430dd8"
+        }
+      ],
+      "limitations": [
+        "Synthetic demonstration record. It is not evidence of a real vulnerability."
+      ]
+    },
+    {
+      "schema_version": 1,
+      "finding_id": "F-composer",
+      "confidence": "confirmed",
+      "component": {
+        "purl": "pkg:composer/ogde/synthetic-demo@1.2.3",
+        "name": "ogde/synthetic-demo",
+        "version": "1.2.3"
+      },
+      "vulnerability": {"id": "OGDE-SYNTHETIC-2", "severity": "medium"},
+      "signals": {"kev_listed": false, "epss": null, "internet_exposed": false},
+      "affected": true,
+      "evidence": [
+        {
+          "source": "ogde",
+          "record_id": "synthetic-composer",
+          "digest_sha256": "8d22f50b852f37e46c42d24535baab003e730c677004109a7af872a04d357672"
+        }
+      ],
+      "limitations": [
+        "Synthetic demonstration record. It is not evidence of a real vulnerability."
+      ]
+    }
+  ]
+}
