@@ -1,3 +1,13 @@
+## Unreleased — start of the v0.3 verified loop
+
+- Add the OGDE brand files under `assets/brand/` (master JPEG, transparent PNG, traced SVG, icon and favicon) and use the logo on the README.
+- Collapse the leftover `odge` package to an import alias of `ogde`. The command name `odge` still works.
+- Add a static gateway in `site/` for ogde.org, with no sign-in and no data collection.
+- Specify the v0.3 trust layer, finding contract, threat model and data-source register. TUF and Sigstore are not implemented in this change.
+- `ogde inventory` reads WordPress version headers and Composer/npm lockfiles into a local CycloneDX file. It does not upload anything.
+- `ogde report` checks local findings, records conflicts, applies OpenVEX suppression and writes a prioritised audit.
+- Bump `actions/setup-python` to 7.1.0, matching the open Dependabot pull request.
+
 ## 0.2.2 — Restore canonical OGDE project name
 
 - Correct the official project and repository name to **OGDE — One Global Defence Ecosystem** (`ymmiah/OGDE`).

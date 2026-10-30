@@ -8,7 +8,9 @@ OGDE is a prototype and is **not** a production incident-response authority.
 - The current ledger is single-writer and must have its hash head anchored externally for meaningful tamper evidence.
 - No remote execution, production modification or automated remediation is included.
 
-Supported prototype: v0.1.x receives best-effort updates; no guarantees or SLAs.
+Supported prototype: v0.2.2 receives best-effort updates. v0.3 work in this tree is not a production control and has no SLA.
+
+`ogde inventory` and `ogde report` are local. They do not upload an inventory. Collectors are not allowed to read `wp-config.php`, environment files, private keys or database contents; the tests fail if they do.
 
 ## Federated publisher security (v0.2)
 

@@ -12,7 +12,9 @@ from .core import (SecurityError, generate_keypair, parse_sbom, read_json,
                    scan_signed_feed, sign_feed, utc_now, verify_envelope, write_json)
 from .ledger import append_event, verify_ledger
 from .osv import scan_osv
-from .immunity import add_publisher, assess, safe_save
+from .finding import build_report, load_report_inputs, render_markdown
+from .immunity import add_publisher, assess, safe_save, safe_save_text
+from .inventory import collect_inventory
 from .policy import markdown_report
 
 
@@ -55,6 +57,18 @@ def parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--out"); evaluate.add_argument("--markdown"); evaluate.add_argument("--ledger")
     evaluate.add_argument("--fail-on", default="any", choices=["any", "none", "P0", "P1", "P2", "P3", "P4"],
                           help="CI gate: nonzero exit for findings at this priority or higher (default any)")
+    collect = sub.add_parser("inventory", help="Build a local CycloneDX inventory from WordPress and lockfiles. Nothing is uploaded.")
+    collect.add_argument("--wordpress", help="WordPress root. Reads the core version and plugin/theme version headers only.")
+    collect.add_argument("--composer-lock", help="Path to a file named composer.lock. Names and versions only.")
+    collect.add_argument("--package-lock", help="Path to a file named package-lock.json. Names and versions only.")
+    collect.add_argument("--out", help="Write the inventory here with private permissions. Printed locally if omitted.")
+    report = sub.add_parser("report", help="Validate local findings, apply VEX, and write a prioritised report. No network.")
+    report.add_argument("--findings", required=True, help="Local findings JSON. It is not fetched.")
+    report.add_argument("--vex", help="Local OpenVEX JSON used to suppress not_affected statements.")
+    report.add_argument("--epss-threshold", default="0.1", help="EPSS probability at or above which a finding ranks higher (default 0.1).")
+    report.add_argument("--include-suppressed", action="store_true", help="Include suppressed findings in stdout and Markdown. The --out audit file always keeps them.")
+    report.add_argument("--out", help="Write the full local audit JSON, including suppressed findings.")
+    report.add_argument("--markdown", help="Write a Markdown report for a person to review.")
     return p
 
 
@@ -76,13 +90,33 @@ def run(args) -> int:
         else:
             print(json.dumps(report, indent=2))
         if args.markdown:
-            from .immunity import safe_save_text
             safe_save_text(args.markdown, markdown_report(report))
         if args.fail_on == "none":
             return 0
         if args.fail_on == "any":
             return 2 if report["finding_count"] else 0
         return 2 if any(int(f["priority"][1:]) <= int(args.fail_on[1:]) for f in report["findings"]) else 0
+    if args.cmd == "inventory":
+        bom = collect_inventory(wordpress=args.wordpress, composer_lock=args.composer_lock, package_lock=args.package_lock)
+        if args.out:
+            safe_save(args.out, bom)
+            print(f"Local inventory written to {args.out}")
+        else:
+            print(json.dumps(bom, indent=2))
+        return 0
+    if args.cmd == "report":
+        document, vex = load_report_inputs(args.findings, args.vex)
+        full = build_report(document, vex=vex, epss_threshold=args.epss_threshold)
+        if args.out:
+            safe_save(args.out, full)
+        shown = full if args.include_suppressed else {**full, "suppressed": []}
+        if args.markdown:
+            safe_save_text(args.markdown, render_markdown(shown))
+        if args.out or args.markdown:
+            print(f"Local finding report: {full['finding_count']} visible, {full['suppressed_count']} suppressed")
+        else:
+            print(json.dumps(shown, indent=2))
+        return 2 if full["finding_count"] else 0
     if args.cmd == "keygen":
         print("Public key SHA-256 fingerprint:", generate_keypair(args.private, args.public)); return 0
     if args.cmd == "sign":

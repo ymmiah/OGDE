@@ -17,6 +17,7 @@ trust/
 # OGDE local publisher keys, evidence and state
 .ogde-local/
 .odge-local/  # legacy local data may contain credentials
+site/public/
 *.key
 *.pem
 *.pub
