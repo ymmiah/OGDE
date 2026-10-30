@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "Yasin Mohammed Miah"}]
-dependencies = ["cryptography>=43,<50"]
+dependencies = ["cryptography>=43,<51"]
 keywords = ["cybersecurity", "threat-intelligence", "sbom", "software-supply-chain", "ed25519"]
 classifiers = ["Programming Language :: Python :: 3", "Topic :: Security"]
 
