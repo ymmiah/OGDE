@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "OGDE"
+version = "0.2.2"
+description = "Privacy-first federated digital immunity: signed advisories, trust pinning, anti-rollback, SBOM matching, explainable triage and opt-in OSV."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{name = "Yasin Mohammed Miah"}]
+dependencies = ["cryptography>=43,<50"]
+keywords = ["cybersecurity", "threat-intelligence", "sbom", "software-supply-chain", "ed25519"]
+classifiers = ["Programming Language :: Python :: 3", "Topic :: Security"]
+
+[project.scripts]
+ogde = "ogde.cli:main"
+odge = "ogde.cli:main"  # legacy command alias
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

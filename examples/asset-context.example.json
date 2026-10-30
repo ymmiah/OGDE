@@ -1,0 +1,7 @@
+{
+  "asset_id": "authorised-demo-service",
+  "environment": "production",
+  "internet_exposed": true,
+  "criticality": 4,
+  "data_sensitivity": "internal"
+}
