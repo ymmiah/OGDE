@@ -2,31 +2,84 @@
   <img src="assets/brand/ogde-logo.png" alt="OGDE — One Global Defence Ecosystem" width="480">
 </p>
 
-**OGDE** (One Global Defence Ecosystem) is an open, neutral platform for sharing verifiable cyber-defence and threat intelligence across organisations, especially those running critical infrastructure.
+<h1 align="center">One Global Defence Ecosystem</h1>
+<p align="center"><strong>Defend locally. Verify globally. Recover together.</strong></p>
+<p align="center">A privacy-preserving, evidence-led foundation for interoperable cyber-defence.</p>
 
-**Defend locally. Verify globally. Recover together.**
+<p align="center">
+  <a href="LICENSE">MIT licence</a> ·
+  <a href="SECURITY.md">Security policy</a> ·
+  <a href="docs/V0.3.md">v0.3 plan</a> ·
+  <a href="docs/ROADMAP_AUTONOMY.md">Engineering roadmap</a> ·
+  <a href="https://github.com/ymmiah/OGDE/actions">CI history</a>
+</p>
 
-> **Status:** v0.2.2 is published at [ymmiah/OGDE](https://github.com/ymmiah/OGDE). It is an experimental developer preview, not a production security control. The current phase is **v0.3, the verified loop**.
+> [!IMPORTANT]
+> **Developer preview — not a production security control.** v0.2.2 is the published baseline; v0.3 is under active development. Passing a unit test or verifying a digest is not proof that threat intelligence is correct, complete, fresh or publisher-authenticated. Do not rely on OGDE as your sole security control.
 
-## v0.3 direction
+## Mission
 
-v0.3 has one job: prove a single trustworthy loop. Verified intelligence comes in, it is matched against an organisation’s own assets, and a finding comes out with a confidence level and the evidence behind it. The first assets are WordPress sites and CI/CD lockfiles. Seven gated phases follow that loop; a later phase does not start until the previous gate is met. The v0.3 gate is five pilot sites over four weeks and a published false-positive rate. That gate is not met.
+OGDE explores a neutral, locally governed cyber-defence ecosystem. Organisations retain control of their inventories and response decisions while sharing or consuming **verifiable, reviewable intelligence** through explicitly authorised interfaces.
 
-Started in this tree:
+The current engineering target is a small, demonstrable loop: **intelligence → local matching → evidence-backed finding → human decision**. WordPress installations and CI/CD dependency lockfiles are the first inventory targets. This is an experimental implementation, not an operational global threat-sharing network.
 
-- The trust layer is specified in [docs/specs/trust.md](docs/specs/trust.md). TUF and Sigstore are not implemented. v0.2.2 Ed25519 feeds remain the working verifier.
-- `ogde inventory` builds a local CycloneDX inventory from a WordPress tree, `composer.lock` and `package-lock.json`. It keeps versions only and does not upload anything.
-- `ogde report` checks a local finding file, applies an OpenVEX statement, and writes a prioritised report. It does not fetch OSV, KEV, EPSS or Wordfence.
+## Architecture at a glance
 
-The public gateway is the static page in [`site/`](site/). It collects no data. Notes for **ogde.org** are in [site/README.md](site/README.md). Phase status and open decisions are in [docs/V0.3.md](docs/V0.3.md). Brand files and stable URLs are in [assets/brand/README.md](assets/brand/README.md).
+The diagram describes the **target v0.3 review flow**. Solid arrows represent intended data flow, not a claim that every integration is merged or deployed. Implementation status is detailed below.
 
-## Try v0.2.2 and the v0.3 slice
+```mermaid
+flowchart TD
+    A["Locally supplied intelligence snapshot"] --> B["Evidence boundary<br/>schema and digest checks"]
+    B --> C["Freshness assessment<br/>operator-supplied date"]
+    C --> D["Local evidence reconciliation"]
+    I["Local inventory<br/>WordPress and lockfiles"] --> E["Local finding contract"]
+    D --> E
+    E --> F{"Evidence and policy checks"}
+    F -->|"Stale, inconsistent or invalid"| G["Blocked or flagged<br/>for human investigation"]
+    F -->|"Reviewable evidence"| H["Prioritised local report<br/>confidence and limitations"]
+    H --> J["Human approval / decision"]
+    G --> J
+    J --> K["Owner-controlled response<br/>outside this automated pipeline"]
 
-```sh
+    classDef source fill:#eef4fa,stroke:#476785,color:#152a3b,stroke-width:1px;
+    classDef validation fill:#edf5f1,stroke:#38785e,color:#173b2d,stroke-width:1px;
+    classDef caution fill:#fff4e8,stroke:#a86b2d,color:#533315,stroke-width:1px;
+    classDef decision fill:#f1eef8,stroke:#75639a,color:#302545,stroke-width:1px;
+    class A,I source;
+    class B,C,D,E,H validation;
+    class F,J decision;
+    class G,K caution;
+```
+
+**Trust boundary:** a matching SHA-256 digest demonstrates equality with a separately pinned digest; it does **not** authenticate CISA, prove feed freshness or establish that a local asset is vulnerable. Publisher authentication, asset applicability and remediation authorisation remain separate decisions.
+
+## Verified repository baseline versus work in review
+
+| Capability | Status | What it actually does |
+| --- | --- | --- |
+| v0.2.2 signed advisory assessment | **On `main`** | Ed25519 verification, pinned keys, exact-version matching and local assessment. |
+| `ogde inventory` | **On `main`** | Local CycloneDX inventory from WordPress files, `composer.lock` and `package-lock.json`; no upload. |
+| `ogde report` | **On `main`** | Local finding validation, confidence and prioritisation, OpenVEX handling and audit output. |
+| Evidence consistency and SHA-256 validation | **On `main`** | Rejects malformed evidence digests and conflicting digest claims for the same evidence identity. |
+| Offline KEV snapshot ingestion | **On `main` / verify active revision** | Pinned-digest validation and a review-only ingestion receipt; no live CISA fetch. |
+| KEV snapshot freshness policy | **Draft [PR #11](https://github.com/ymmiah/OGDE/pull/11)** | Operator-dated, configurable age assessment; not publisher-authenticated. |
+| Local KEV-to-finding reconciliation | **Draft [PR #12](https://github.com/ymmiah/OGDE/pull/12)** | Flags mismatches between recorded KEV signals and a validated local snapshot; does not change findings. |
+| Integrated KEV review pipeline | **Draft [PR #13](https://github.com/ymmiah/OGDE/pull/13)** | Composes pinned ingestion, freshness and reconciliation into a human-review result; includes changes from the earlier draft branches. |
+| TUF / Sigstore trust integration | **Specification only** | Not implemented or enabled. |
+| Live multi-source intelligence, automated remediation, production agent | **Not implemented** | Not part of the current developer preview. |
+
+**Review note:** the M3 draft branches overlap. Their pull requests are not independent production releases; review and reconcile the changes before merging. The table reports repository development state, not successful deployment or independently verified CI results.
+
+## Run the available baseline
+
+Requires a supported Python environment. The commands below operate locally; the example findings are synthetic.
+
+```bash
 python -m pip install -e .
 python -m unittest discover -s tests -v
 
 mkdir -p .ogde-local
+
 ogde inventory \
   --wordpress examples/demo-site/wordpress \
   --composer-lock examples/demo-site/composer.lock \
@@ -40,29 +93,28 @@ ogde report \
   --markdown .ogde-local/findings.md
 ```
 
-`ogde report` exits 2 when a visible finding remains. The synthetic example does that on purpose. The v0.2.2 signed-feed walkthrough is [docs/FEDERATION_V2.md](docs/FEDERATION_V2.md).
+`ogde report` intentionally exits with code `2` when a visible finding remains in the synthetic example. The historical `odge` command/import is retained as an alias; there is no separate implementation. See [signed-feed documentation](docs/FEDERATION_V2.md) for the earlier verifier.
 
-The historical `odge` import and command are aliases of `ogde`. There is no second implementation.
+The new M3 modules are under review and are **not advertised as stable CLI commands**.
 
-## What v0.2.2 already does
+## Security and privacy guarantees — and limits
 
-- `ogde trust-add` pins a publisher key that was checked out of band.
-- `ogde assess` rejects tampered, expired, untrusted, replayed or equivocated feeds, matches exact versions and writes a local result.
-- Advisory text is data. It is never executed.
-- `--fail-on P2` can fail a build. It never changes a production system.
-- An optional KEV snapshot is unverified local input. A match is not proof of exploitation.
+- **Local-first:** inventories and findings remain on the operator's machine by default.
+- **Explicit consent:** network-enabled features require operator authorisation; the M3 offline pipeline makes no network requests.
+- **Read-only assessment:** intelligence and advisory text are data, never commands.
+- **Fail closed:** invalid schemas, mismatched pinned digests and inconsistent evidence must not silently become trusted findings.
+- **Human-governed response:** no automatic patching, isolation, privilege escalation or production changes.
+- **Evidence honesty:** signatures authenticate signers, not the truth of a vulnerability claim; KEV listing does not prove exploitation of a particular asset.
+- **Scope limitation:** these are design and implementation properties of the described paths, not an independently audited platform-wide security certification.
 
-## Principles
+## Delivery gates and next work
 
-1. **Local control.** Do not scan or change someone else’s systems.
-2. **Independent trust.** Pin a publisher before accepting an advisory.
-3. **Truth over theatrics.** A valid signature authenticates the signer, not the claim.
-4. **Evidence.** Every finding should say why it is there, and what it cannot prove.
-5. **Fail closed.** Reject missing trust, bad schemas, expired feeds and rollbacks.
-6. **Human approval.** No autonomous remediation.
+The v0.3 exit gate is **five pilot sites over four weeks and a published false-positive rate**. This gate has **not** been met. Before any production-readiness claim, OGDE needs end-to-end integration tests, documented provenance and freshness policy, measured false positives, security review, and owner-approved pilot evidence.
 
-## Contributing and reporting
+Near-term engineering work: consolidate the overlapping M3 pull requests, verify GitHub Actions on the actual merge candidate, add structured local audit records and deterministic failure reporting, and evaluate authenticated source provenance. Longer-term milestones are in [the autonomy roadmap](docs/ROADMAP_AUTONOMY.md).
 
-Please read [SECURITY.md](SECURITY.md). Report vulnerabilities privately. Do not publish an exploit against a live system.
+## Contributing and responsible disclosure
 
-**Repository:** [ymmiah/OGDE](https://github.com/ymmiah/OGDE). **Licence:** MIT.
+Read [SECURITY.md](SECURITY.md) before reporting vulnerabilities; disclose sensitive issues privately. Do not test against third-party infrastructure without authorisation.
+
+**Project:** [github.com/ymmiah/OGDE](https://github.com/ymmiah/OGDE) · **Licence:** [MIT](LICENSE) · **Project phase:** v0.3 experimental developer preview.
