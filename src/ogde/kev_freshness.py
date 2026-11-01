@@ -1,6 +1,6 @@
 """Offline KEV freshness assessment; never grants publisher trust."""
 from __future__ import annotations
-from datetime import date, datetime, timezone
+from datetime import date
 from .core import SecurityError
 
 
