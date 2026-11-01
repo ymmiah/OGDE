@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from .core import SecurityError, read_json, canonical
 
-_SHA = re.compile(r"[0-9a-f]{64}\\Z")
+_SHA = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def verify_local_evidence(document: object, *, expected_sha256: str, source_path: str | Path) -> dict:
