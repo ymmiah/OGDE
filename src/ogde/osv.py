@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from .core import Component, SecurityError, canonical, utc_now
 
 API_URL = "https://api.osv.dev/v1/querybatch"
@@ -10,11 +10,20 @@ ECOSYSTEMS = {"pypi": "PyPI", "npm": "npm", "maven": "Maven", "golang": "Go", "c
 MAX_RESPONSE = 8 * 1024 * 1024
 
 
+class _RejectRedirects(HTTPRedirectHandler):
+    """Refuse HTTP redirects to avoid forwarding a consented package inventory."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise SecurityError("OSV redirect refused")
+
+
 def query_batch(queries: list[dict]) -> list[dict]:
     payload = canonical({"queries": queries})
     req = Request(API_URL, data=payload, headers={"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "OGDE/0.1.0"}, method="POST")
     try:
-        with urlopen(req, timeout=20) as resp:
+        with build_opener(_RejectRedirects()).open(req, timeout=20) as resp:
+            if resp.geturl() != API_URL:
+                raise SecurityError("OSV response URL differs from approved endpoint")
             if resp.status != 200:
                 raise SecurityError(f"OSV returned status {resp.status}")
             body = resp.read(MAX_RESPONSE + 1)
