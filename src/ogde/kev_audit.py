@@ -24,8 +24,8 @@ def build_kev_audit_manifest(review: object) -> dict:
     issues = review.get("issues")
     if not isinstance(issues, list) or any(type(i) is not str or i not in _ALLOWED for i in issues):
         raise SecurityError("Invalid review issues")
-    if issues != sorted(set(issues)):
-        raise SecurityError("Review issues must be unique and sorted")
+    if len(issues) != len(set(issues)):
+        raise SecurityError("Review issues must be unique")
     status = review.get("review_status")
     if status != ("blocked" if issues else "requires-human-review"):
         raise SecurityError("Review status contradicts issues")
@@ -55,10 +55,7 @@ def build_kev_audit_manifest(review: object) -> dict:
         raise SecurityError("Invalid reconciliation annotations")
     if sum(not row["signal_consistent"] for row in annotations) != inconsistent:
         raise SecurityError("Reconciliation inconsistencies do not match annotations")
-    expected_issues = sorted(
-        (["stale-snapshot"] if age > limit else [])
-        + (["inconsistent-kev-signals"] if inconsistent else [])
-    )
+    expected_issues = (["stale-snapshot"] if age > limit else []) + (["inconsistent-kev-signals"] if inconsistent else [])
     if issues != expected_issues:
         raise SecurityError("Review issues contradict evidence")
     manifest = {
