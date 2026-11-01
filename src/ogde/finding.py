@@ -123,6 +123,15 @@ def validate_finding(value: object) -> dict:
             "record_id": _text(fields["record_id"], "evidence record", _RECORD),
             "digest_sha256": _text(fields["digest_sha256"], "evidence digest", _DIGEST),
         })
+    # A repeated evidence identity must not carry conflicting digests.
+    # Otherwise an attacker could make one source/record appear to support
+    # incompatible claims while retaining a syntactically valid finding.
+    evidence_by_identity = {}
+    for record in evidence:
+        identity = (record["source"], record["record_id"])
+        previous = evidence_by_identity.setdefault(identity, record["digest_sha256"])
+        if previous != record["digest_sha256"]:
+            raise SecurityError("Conflicting digests for the same evidence identity")
     limitations_in = item["limitations"]
     if not isinstance(limitations_in, list) or not 1 <= len(limitations_in) <= 6:
         raise SecurityError("A finding needs between 1 and 6 limitations")
