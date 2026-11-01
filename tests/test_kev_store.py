@@ -42,6 +42,17 @@ class AuditStoreTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             save_audit_snapshot(self.path, self.two, expected_head="0" * 64)
 
+    def test_valid_head_cannot_truncate_history(self):
+        save_audit_snapshot(self.path, self.two)
+        with self.assertRaises(SecurityError):
+            save_audit_snapshot(self.path, self.one, expected_head=self.two[-1]["record_sha256"])
+
+    def test_valid_head_cannot_replace_history(self):
+        save_audit_snapshot(self.path, self.one)
+        replacement = append_audit_record([], manifest(99))
+        with self.assertRaises(SecurityError):
+            save_audit_snapshot(self.path, replacement, expected_head=self.one[-1]["record_sha256"])
+
     def test_checkpoint_mismatch_rejected(self):
         save_audit_snapshot(self.path, self.one)
         with self.assertRaises(SecurityError):
