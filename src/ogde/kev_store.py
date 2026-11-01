@@ -54,6 +54,8 @@ def save_audit_snapshot(path: str | Path, chain: object, *,
         head = current[-1]["record_sha256"] if current else None
         if expected_head is None or expected_head != head:
             raise SecurityError("Existing audit snapshot requires matching expected head")
+        if len(verified) < len(current) or verified[:len(current)] != current:
+            raise SecurityError("Audit snapshot updates must preserve existing history")
     elif expected_head is not None:
         raise SecurityError("Expected existing audit snapshot is missing")
     data = canonical(verified) + b"\n"
