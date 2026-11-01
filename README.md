@@ -25,31 +25,32 @@ The current engineering target is a small, demonstrable loop: **intelligence →
 
 ## Architecture at a glance
 
-The diagram describes the **target v0.3 review flow**. Solid arrows represent intended data flow, not a claim that every integration is merged or deployed. Implementation status is detailed below.
+The diagram below retains the **same v0.3 review process, decision points and trust boundaries**. Its presentation follows the restrained, monochrome **PRISMA 2020-style flowchart convention** (clear process boxes and explicit branches); it is an engineering workflow illustration, **not** a PRISMA systematic-review report. No system functionality is changed by this diagram.
 
 ```mermaid
-flowchart TD
-    A["Locally supplied intelligence snapshot"] --> B["Evidence boundary<br/>schema and digest checks"]
-    B --> C["Freshness assessment<br/>operator-supplied date"]
+flowchart TB
+    A["Locally supplied intelligence snapshot"] --> B["Evidence boundary<br/>Schema and digest checks"]
+    B --> C["Freshness assessment<br/>Operator-supplied date"]
     C --> D["Local evidence reconciliation"]
     I["Local inventory<br/>WordPress and lockfiles"] --> E["Local finding contract"]
     D --> E
     E --> F{"Evidence and policy checks"}
     F -->|"Stale, inconsistent or invalid"| G["Blocked or flagged<br/>for human investigation"]
-    F -->|"Reviewable evidence"| H["Prioritised local report<br/>confidence and limitations"]
+    F -->|"Reviewable evidence"| H["Prioritised local report<br/>Confidence and limitations"]
     H --> J["Human approval / decision"]
     G --> J
-    J --> K["Owner-controlled response<br/>outside this automated pipeline"]
+    J --> K["Owner-controlled response<br/>Outside this automated pipeline"]
 
-    classDef source fill:#eef4fa,stroke:#476785,color:#152a3b,stroke-width:1px;
-    classDef validation fill:#edf5f1,stroke:#38785e,color:#173b2d,stroke-width:1px;
-    classDef caution fill:#fff4e8,stroke:#a86b2d,color:#533315,stroke-width:1px;
-    classDef decision fill:#f1eef8,stroke:#75639a,color:#302545,stroke-width:1px;
-    class A,I source;
-    class B,C,D,E,H validation;
-    class F,J decision;
-    class G,K caution;
+    classDef process fill:#ffffff,stroke:#303030,color:#181818,stroke-width:1.5px;
+    classDef review fill:#f2f2f2,stroke:#303030,color:#181818,stroke-width:1.8px;
+    classDef blocked fill:#ffffff,stroke:#555555,color:#181818,stroke-width:2px,stroke-dasharray:5 3;
+    class A,B,C,D,I,E,H,K process;
+    class F,J review;
+    class G blocked;
+    linkStyle default stroke:#555555,stroke-width:1.5px;
 ```
+
+**Reading the flow:** the left-hand local inventory and the checked intelligence evidence converge at the finding contract. Invalid or inconsistent evidence is flagged for investigation; reviewable evidence reaches a local report. Both paths require a human decision. **No automated response is authorised.**
 
 **Trust boundary:** a matching SHA-256 digest demonstrates equality with a separately pinned digest; it does **not** authenticate CISA, prove feed freshness or establish that a local asset is vulnerable. Publisher authentication, asset applicability and remediation authorisation remain separate decisions.
 
