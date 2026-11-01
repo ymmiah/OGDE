@@ -19,6 +19,15 @@ class EvidenceGateTests(unittest.TestCase):
         self.assertFalse(receipt["publisher_authenticated"])
         self.assertEqual(receipt["decision"], "human-review")
 
+    def test_valid_sha256_accepts_hex_digits_a_to_f(self):
+        receipt = self.check()
+        self.assertEqual(receipt["digest_sha256"], self.digest)
+        self.assertTrue(receipt["verified_integrity"])
+
+    def test_uppercase_digest_rejected(self):
+        with self.assertRaises(SecurityError):
+            self.check(digest=self.digest.upper())
+
     def test_digest_mismatch(self):
         with self.assertRaises(SecurityError):
             self.check(digest="0" * 64)
