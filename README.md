@@ -27,28 +27,12 @@ The current engineering target is a small, demonstrable loop: **intelligence →
 
 The diagram below retains the **same v0.3 review process, decision points and trust boundaries**. Its presentation follows the restrained, monochrome **PRISMA 2020-style flowchart convention** (clear process boxes and explicit branches); it is an engineering workflow illustration, **not** a PRISMA systematic-review report. No system functionality is changed by this diagram.
 
-```mermaid
-flowchart TB
-    A["Locally supplied intelligence snapshot"] --> B["Evidence boundary<br/>Schema and digest checks"]
-    B --> C["Freshness assessment<br/>Operator-supplied date"]
-    C --> D["Local evidence reconciliation"]
-    I["Local inventory<br/>WordPress and lockfiles"] --> E["Local finding contract"]
-    D --> E
-    E --> F{"Evidence and policy checks"}
-    F -->|"Stale, inconsistent or invalid"| G["Blocked or flagged<br/>for human investigation"]
-    F -->|"Reviewable evidence"| H["Prioritised local report<br/>Confidence and limitations"]
-    H --> J["Human approval / decision"]
-    G --> J
-    J --> K["Owner-controlled response<br/>Outside this automated pipeline"]
+<p align="center">
+  <img src="assets/diagrams/ogde-v03-review-flow.svg" alt="OGDE v0.3 review workflow: local intelligence verification and local inventory converge at evidence checks; stale or inconsistent evidence is flagged, reviewable evidence becomes a report, and both require human approval before any owner-controlled response." width="900">
+</p>
 
-    classDef process fill:#ffffff,stroke:#303030,color:#181818,stroke-width:1.5px;
-    classDef review fill:#f2f2f2,stroke:#303030,color:#181818,stroke-width:1.8px;
-    classDef blocked fill:#ffffff,stroke:#555555,color:#181818,stroke-width:2px,stroke-dasharray:5 3;
-    class A,B,C,D,I,E,H,K process;
-    class F,J review;
-    class G blocked;
-    linkStyle default stroke:#555555,stroke-width:1.5px;
-```
+[Open the full-size architecture diagram](assets/diagrams/ogde-v03-review-flow.svg)
+
 
 **Reading the flow:** the left-hand local inventory and the checked intelligence evidence converge at the finding contract. Invalid or inconsistent evidence is flagged for investigation; reviewable evidence reaches a local report. Both paths require a human decision. **No automated response is authorised.**
 
