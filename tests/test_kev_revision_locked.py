@@ -32,10 +32,10 @@ class LockedRevisionTests(unittest.TestCase):
             "algorithm": "Ed25519", "key_id": public_key_id(self.key.public_key()),
             "value": base64.b64encode(self.key.sign(canonical(statement))).decode()}}
 
-    def accept(self, revision):
+    def accept(self, revision, checkpoint=None):
         return accept_kev_attestation_locked(
             self.snapshot, self.envelope(revision), state_path=self.path,
-            trusted_public_pem=self.pem, expected_signer="operator-lab", as_of="2026-11-01")
+            trusted_public_pem=self.pem, expected_signer="operator-lab", as_of="2026-11-01", checkpoint=checkpoint)
 
     def test_advances_and_rejects_replay(self):
         self.accept(1)
@@ -70,6 +70,47 @@ class LockedRevisionTests(unittest.TestCase):
             accept_kev_attestation_locked(
                 self.snapshot, envelope, state_path=self.path,
                 trusted_public_pem=self.pem, expected_signer="operator-lab", as_of="2026-11-01")
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
+
+
+    def test_checkpointed_acceptance_returns_new_checkpoint(self):
+        first = self.accept(1)
+        self.assertFalse(first["previous_checkpoint_verified"])
+        self.assertFalse(first["publisher_authenticated"])
+        second = self.accept(2, checkpoint=first["revision_checkpoint"])
+        self.assertTrue(second["previous_checkpoint_verified"])
+        self.assertNotEqual(first["revision_checkpoint"], second["revision_checkpoint"])
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 2)
+
+    def test_rolled_back_state_rejected_before_update(self):
+        first = self.accept(1)
+        old_state = self.path.read_bytes()
+        second = self.accept(2, checkpoint=first["revision_checkpoint"])
+        self.path.write_bytes(old_state)
+        with self.assertRaises(SecurityError):
+            self.accept(3, checkpoint=second["revision_checkpoint"])
+        self.assertEqual(self.path.read_bytes(), old_state)
+
+    def test_missing_state_rejected_when_checkpoint_exists(self):
+        first = self.accept(1)
+        self.path.unlink()
+        with self.assertRaises(SecurityError):
+            self.accept(2, checkpoint=first["revision_checkpoint"])
+        self.assertFalse(self.path.exists())
+
+    def test_stale_checkpoint_rejected_before_update(self):
+        first = self.accept(1)
+        self.accept(2, checkpoint=first["revision_checkpoint"])
+        with self.assertRaises(SecurityError):
+            self.accept(3, checkpoint=first["revision_checkpoint"])
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 2)
+
+    def test_modified_checkpoint_rejected(self):
+        first = self.accept(1)
+        altered = dict(first["revision_checkpoint"])
+        altered["signer_count"] = 0
+        with self.assertRaises(SecurityError):
+            self.accept(2, checkpoint=altered)
         self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
 
 
