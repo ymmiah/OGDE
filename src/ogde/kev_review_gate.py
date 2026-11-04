@@ -41,7 +41,7 @@ def review_and_accept_signed_kev(
     )
     if review["review_status"] != "requires-human-review" or review["issues"]:
         raise SecurityError("Blocked KEV review: revision state not advanced")
-    receipt = accept_kev_attestation_locked(
+    # Check review/attestation agreement BEFORE any trusted-state write.\n    # The post-write receipt check remains a defence-in-depth assertion.\n    if not isinstance(digest, str) or review.get("digest_sha256") != digest:\n        raise SecurityError("Review digest differs from signed attestation: state not advanced")\n    receipt = accept_kev_attestation_locked(
         frozen_snapshot, frozen_attestation, state_path=state_path,
         trusted_public_pem=trusted_public_pem,
         expected_signer=expected_signer, as_of=as_of
