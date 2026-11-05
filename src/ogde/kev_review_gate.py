@@ -39,8 +39,11 @@ def review_and_accept_signed_kev(
         frozen_snapshot, frozen_findings, expected_sha256=digest,
         snapshot_date=snapshot_date, as_of=as_of, max_age_days=max_age_days
     )
-    if review["review_status"] != "requires-human-review" or review["issues"]:
-        raise SecurityError("Blocked KEV review: revision state not advanced")
+    if (not isinstance(review, dict)
+            or review.get("review_status") != "requires-human-review"
+            or type(review.get("issues")) is not list
+            or review["issues"]):
+        raise SecurityError("Blocked or malformed KEV review: revision state not advanced")
     # Check review/attestation agreement BEFORE any trusted-state write.
     # The post-write receipt check remains a defence-in-depth assertion.
     if not isinstance(digest, str) or review.get("digest_sha256") != digest:
