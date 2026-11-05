@@ -9,13 +9,20 @@ import stat
 from pathlib import Path
 
 from .core import SecurityError
-from .kev_revision_state import accept_kev_attestation
+from .kev_revision_state import accept_kev_attestation, load_kev_revision_state
+from .kev_revision_checkpoint import create_kev_revision_checkpoint, verify_kev_revision_checkpoint
 
 
 def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
                                   state_path: str | Path, trusted_public_pem: bytes,
-                                  expected_signer: str, as_of: str) -> dict:
-    """Serialise read/verify/write with a stable sidecar advisory lock."""
+                                  expected_signer: str, as_of: str,
+                                  checkpoint: object | None = None) -> dict:
+    """Serialise verification and state updates under a stable sidecar lock.
+
+    When supplied, the independently retained checkpoint must match current
+    state before acceptance. Return the new checkpoint for external anchoring.
+    Without an external checkpoint, local filesystem rollback is undetectable.
+    """
     try:
         import fcntl
     except ImportError as exc:
@@ -38,10 +45,15 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
         if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
             raise SecurityError("Revision lock must be a private regular file")
         fcntl.flock(fd, fcntl.LOCK_EX)
-        return accept_kev_attestation(
+        if checkpoint is not None:
+            verify_kev_revision_checkpoint(load_kev_revision_state(target), checkpoint)
+        receipt = accept_kev_attestation(
             snapshot, attestation, state_path=target,
             trusted_public_pem=trusted_public_pem,
             expected_signer=expected_signer, as_of=as_of
         )
+        new_checkpoint = create_kev_revision_checkpoint(load_kev_revision_state(target))
+        return {**receipt, "revision_checkpoint": new_checkpoint,
+                "previous_checkpoint_verified": checkpoint is not None}
     finally:
         os.close(fd)
