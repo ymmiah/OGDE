@@ -11,6 +11,7 @@ from pathlib import Path
 from .core import SecurityError
 from .kev_revision_state import accept_kev_attestation, load_kev_revision_state
 from .kev_revision_checkpoint import create_kev_revision_checkpoint, verify_kev_revision_checkpoint
+from .kev_state_path_guard import validate_kev_state_path
 
 
 def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
@@ -29,7 +30,9 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
         raise SecurityError("POSIX advisory locks unavailable") from exc
     if not hasattr(os, "O_NOFOLLOW"):
         raise SecurityError("Secure no-follow lock opening unavailable")
-    target = Path(state_path)
+    # Reject symlinked ancestors before creating/opening the sidecar lock.
+    # State validation alone occurs too late to prevent redirected lock creation.
+    target = validate_kev_state_path(state_path)
     parent = target.parent
     if parent.is_symlink() or not parent.is_dir():
         raise SecurityError("Invalid revision state directory")
