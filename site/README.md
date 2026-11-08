@@ -1,60 +1,49 @@
-# ogde.org gateway
+# OGDE public website — GitHub Pages
 
-`site/` is a static landing page for OGDE. It explains the mission, the current status and how to try the command-line preview. It has no sign-in, no forms, no scripts and no analytics.
+A comprehensive, responsive, static public site for One Global Defence Ecosystem. Covers the mission, six platform capabilities, trust architecture, product surfaces, twelve proposed workstreams, actual implementation status, privacy principles and links to source documentation.
 
-The page uses the brand files in `../assets/brand/` so a local preview from the repository root resolves the logo. A publish build copies those same files next to the HTML. Do not keep a second copy of the logo in git.
+**Source:** `site/index.html`, `site/styles.css`, canonical assets in `assets/brand/`.
 
-## Preview locally
+## Preview
 
-From the repository root:
+From repository root:
 
 ```sh
 python -m http.server 8080
 ```
 
-Open `http://127.0.0.1:8080/site/`.
+Visit `http://localhost:8080/site/`. The source page references brand assets one directory above; the publish script rewrites those paths for production.
 
-## Build a publish directory
+## Build
 
 ```sh
 bash site/prepare-publish.sh
+python -m http.server 8080 --directory site/public
 ```
 
-That writes `site/public/`, which is git-ignored. The HTML there points at `assets/brand/` inside the publish directory. Those files are copies produced at build time from `assets/brand/`.
+Visit `http://localhost:8080/`. The build copies canonical brand assets into `site/public/assets/brand/`, creates `CNAME` containing `ogde.org`, and `.nojekyll`. It retains the Cloudflare `_headers` file, although **GitHub Pages does not enforce Cloudflare's `_headers` file**.
 
-`site/public/_headers` is included for Cloudflare Pages. It sets a content security policy that allows no scripts, no frames and no form submissions.
+## GitHub Pages deployment
 
-## Domain
+1. Merge the reviewed website pull request into `main` (not automatic).
+2. In **GitHub → repository Settings → Pages → Build and deployment**, select **GitHub Actions**.
+3. Run the `Publish OGDE website to GitHub Pages` workflow (or push a matching site change to `main`).
+4. The project URL is expected to be `https://ymmiah.github.io/OGDE/` until the custom domain is configured and DNS resolves.
+5. In **Settings → Pages → Custom domain**, set `ogde.org` if not already populated by the `CNAME` artifact.
+6. In Cloudflare DNS for `ogde.org`, add the **current GitHub Pages apex records from GitHub's official documentation**. Do not infer that DNS has already been changed. Initially set Cloudflare proxy to **DNS only** for certificate issuance if necessary. After the domain resolves and GitHub provisions its certificate, enable **Enforce HTTPS**.
+7. Optionally configure `www.ogde.org` using GitHub's documented `www` CNAME target and redirect rules. Do not configure wildcard DNS records.
 
-`ogde.org` is registered. DNS is hosted on Cloudflare. There are no records yet, so the name does not serve this site until the owner adds some.
+GitHub Pages publishing requires repository permissions, Pages settings and DNS configuration by an authorised owner. A merged PR alone does not prove the public domain is live.
 
-Do not add records until the host is chosen. The host’s own instructions are the source for the exact names and targets; hard-coded addresses go stale.
+## Security and privacy
 
-### Cloudflare Pages
+- Static HTML/CSS only; no JavaScript, forms, cookies, telemetry or third-party fonts.
+- No login or user inventory collection.
+- Existing repo `LICENSE` is MIT; the website does not change licensing.
+- Source information is intentionally clear about planned versus implemented capabilities.
+- Security updates, pull-request review and production deployment remain separate gates.
+- This is a **public information website**, not the operational OGDE dashboard or intelligence API.
 
-This matches the existing DNS host and needs no origin server.
+## Maintenance
 
-1. Create a Pages project from `ymmiah/OGDE`.
-2. Framework preset: none.
-3. Build command: `bash site/prepare-publish.sh`
-4. Build output directory: `site/public`
-5. Add the custom domain `ogde.org` in the Pages project. On the same Cloudflare account, Pages can create the DNS records in the empty zone.
-6. Leave Cloudflare Web Analytics and Email Address Obfuscation off. Both inject scripts, and this site is written to load none.
-7. Optional: add `www.ogde.org` as a redirect to the apex. That is an owner choice.
-
-Production deploys should track `main` only after the brand files are on that branch, because the page documents the raw URLs on `main`.
-
-### GitHub Pages
-
-Use the same build output.
-
-1. Run `bash site/prepare-publish.sh` in a workflow, or on a `gh-pages` branch that contains only `site/public`.
-2. In the repository Pages settings, choose that output and request the custom domain `ogde.org`.
-3. Add the DNS records GitHub shows at that moment to the Cloudflare zone. Do not copy old address lists from memory.
-4. Enable HTTPS once the certificate is issued.
-
-GitHub Pages from `/docs` or from the repository root will not put this page at the apex without a build, because `index.html` lives in `site/`.
-
-## Still to decide
-
-The owner chooses the host. This directory does not turn on a deployment by itself.
+Update roadmap/status copy when engineering milestones actually pass verification. Do not imply a pilot, public feed, customer agent or production defence network exists before evidence is available.

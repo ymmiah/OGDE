@@ -16,4 +16,6 @@ cp assets/brand/ogde-logo.svg \
    assets/brand/ogde-icon-180.png \
    assets/brand/favicon.ico \
    "$out/assets/brand/"
+printf "ogde.org\\n" > "$out/CNAME"
+touch "$out/.nojekyll"
 echo "Publish directory: $out"
