@@ -37,8 +37,21 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
     if parent.is_symlink() or not parent.is_dir():
         raise SecurityError("Invalid revision state directory")
     lock = parent / (target.name + ".lock")
-    if lock.is_symlink():
-        raise SecurityError("Refusing revision lock symlink")
+    # Reject special or aliased existing lock paths before opening them.
+    # In particular, opening a FIFO O_RDWR can have device-specific effects.
+    # fstat below remains authoritative for the opened descriptor.
+    try:
+        lock_info = lock.lstat()
+    except FileNotFoundError:
+        lock_info = None
+    except OSError as exc:
+        raise SecurityError("Cannot inspect revision lock") from exc
+    if lock_info is not None and (
+        not stat.S_ISREG(lock_info.st_mode)
+        or lock_info.st_mode & 0o077
+        or lock_info.st_nlink != 1
+    ):
+        raise SecurityError("Revision lock must be a private, singly linked regular file")
     try:
         fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     except OSError as exc:
