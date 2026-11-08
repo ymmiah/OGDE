@@ -39,7 +39,8 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
     lock = parent / (target.name + ".lock")
     # Reject special or aliased existing lock paths before opening them.
     # In particular, opening a FIFO O_RDWR can have device-specific effects.
-    # O_NONBLOCK avoids hanging if an attacker swaps a FIFO after lstat.\n    # fstat below remains authoritative for the opened descriptor.
+    # O_NONBLOCK avoids hanging if an attacker swaps a FIFO after lstat.
+    # fstat below remains authoritative for the opened descriptor.
     try:
         lock_info = lock.lstat()
     except FileNotFoundError:
