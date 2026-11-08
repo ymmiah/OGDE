@@ -1,4 +1,4 @@
-name: Publish OGDE website to GitHub Pages
+name: Deploy OGDE Website
 on:
   push:
     branches: [main]
