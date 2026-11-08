@@ -6,10 +6,13 @@ from .review_audit_checkpoint import verify_review_audit_checkpoint
 def verify_review_audit_continuity(entries, previous_checkpoint, current_checkpoint, *, require_advance=False):
     """Fail closed unless current chain retains the exact anchored previous prefix.
 
-    Set require_advance=True for workflows that must reject replay/no-op updates.\n    Both checkpoints must be authenticated independently by the caller.
+    Set require_advance=True for workflows that must reject replay/no-op updates.
+    Both checkpoints must be authenticated independently by the caller.
     No I/O, signing, network access or trust-anchor management occurs here.
     """
-    if type(require_advance) is not bool:\n        return False\n    if type(entries) is not list or type(previous_checkpoint) is not dict:
+    if type(require_advance) is not bool:
+        return False
+    if type(entries) is not list or type(previous_checkpoint) is not dict:
         return False
     if type(current_checkpoint) is not dict:
         return False
@@ -17,7 +20,9 @@ def verify_review_audit_continuity(entries, previous_checkpoint, current_checkpo
     current_count = current_checkpoint.get('entry_count')
     if type(prior_count) is not int or type(current_count) is not int:
         return False
-    if prior_count < 1 or current_count < prior_count or len(entries) != current_count:\n        return False\n    if require_advance and current_count == prior_count:
+    if prior_count < 1 or current_count < prior_count or len(entries) != current_count:
+        return False
+    if require_advance and current_count == prior_count:
         return False
     if not verify_review_audit_checkpoint(entries, current_checkpoint):
         return False
