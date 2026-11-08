@@ -11,6 +11,7 @@ from pathlib import Path
 from .core import MAX_JSON_BYTES, SecurityError, canonical
 from .localio import load_json_file
 from .kev_attestation import verify_kev_attestation
+from .kev_state_path_guard import validate_kev_state_path
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 _EMPTY = {"schema_version": 1, "kind": "ogde-kev-revision-state", "signers": {}}
@@ -37,11 +38,7 @@ def _validate(state: object) -> dict:
 
 
 def load_kev_revision_state(path: str | Path) -> dict:
-    target = Path(path)
-    if target.parent.is_symlink() or not target.parent.is_dir():
-        raise SecurityError("Revision state directory is invalid")
-    if target.is_symlink():
-        raise SecurityError("Refusing revision state symlink")
+    target = validate_kev_state_path(path)
     if not target.exists():
         return {"schema_version": 1, "kind": _EMPTY["kind"], "signers": {}}
     info = target.lstat()
@@ -58,7 +55,7 @@ def accept_kev_attestation(snapshot: object, attestation: object, *,
     Requires a single trusted writer. Filesystem rollback and concurrent writers
     require separate protection; no publisher identity is inferred.
     """
-    target = Path(state_path)
+    target = validate_kev_state_path(state_path)
     state = load_kev_revision_state(target)
     previous = state["signers"].get(expected_signer)
     revision = previous["revision"] if previous else 0
