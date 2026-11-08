@@ -89,6 +89,29 @@ class LockAncestryTests(unittest.TestCase):
         self.assertEqual(lock.read_bytes(), b'private-original')
         self.assertEqual(state.read_text(), '{"schema_version":1}')
 
+    def test_world_readable_lock_rejected_without_state_mutation(self):
+        state = self.root / 'real' / 'state.json'
+        state.write_bytes(b'operator-state')
+        state.chmod(0o600)
+        lock = self.root / 'real' / 'state.json.lock'
+        lock.write_bytes(b'operator-lock')
+        lock.chmod(0o644)
+        self.attempt(state)
+        self.assertEqual(state.read_bytes(), b'operator-state')
+        self.assertEqual(lock.read_bytes(), b'operator-lock')
+
+    def test_lock_symlink_rejected_without_touching_target(self):
+        state = self.root / 'real' / 'state.json'
+        state.write_bytes(b'operator-state')
+        state.chmod(0o600)
+        outside = self.root / 'private-lock-target'
+        outside.write_bytes(b'private-data')
+        lock = self.root / 'real' / 'state.json.lock'
+        lock.symlink_to(outside)
+        self.attempt(state)
+        self.assertEqual(state.read_bytes(), b'operator-state')
+        self.assertEqual(outside.read_bytes(), b'private-data')
+
     def test_directory_target_does_not_create_lock(self):
         target = self.root / 'real' / 'nested'
         self.attempt(target)
