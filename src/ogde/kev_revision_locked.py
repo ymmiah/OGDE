@@ -39,7 +39,7 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
     lock = parent / (target.name + ".lock")
     # Reject special or aliased existing lock paths before opening them.
     # In particular, opening a FIFO O_RDWR can have device-specific effects.
-    # fstat below remains authoritative for the opened descriptor.
+    # O_NONBLOCK avoids hanging if an attacker swaps a FIFO after lstat.\n    # fstat below remains authoritative for the opened descriptor.
     try:
         lock_info = lock.lstat()
     except FileNotFoundError:
@@ -53,7 +53,7 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
     ):
         raise SecurityError("Revision lock must be a private, singly linked regular file")
     try:
-        fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        fd = os.open(lock, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
     except OSError as exc:
         raise SecurityError("Cannot securely open revision lock") from exc
     try:
