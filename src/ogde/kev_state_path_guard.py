@@ -20,6 +20,8 @@ def validate_kev_state_path(path: str | Path) -> Path:
             raise SecurityError("Revision state target must be a regular file")
         if info.st_mode & 0o077:
             raise SecurityError("Revision state target must be private")
+        if info.st_nlink != 1:
+            raise SecurityError("Revision state target must not be hardlinked")
     if not target.parent.is_dir():
         raise SecurityError("Revision state directory is invalid")
     return target
