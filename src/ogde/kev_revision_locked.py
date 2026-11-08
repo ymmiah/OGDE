@@ -45,8 +45,8 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
         raise SecurityError("Cannot securely open revision lock") from exc
     try:
         info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
-            raise SecurityError("Revision lock must be a private regular file")
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_nlink != 1:
+            raise SecurityError("Revision lock must be a private, singly linked regular file")
         fcntl.flock(fd, fcntl.LOCK_EX)
         if checkpoint is not None:
             verify_kev_revision_checkpoint(load_kev_revision_state(target), checkpoint)
