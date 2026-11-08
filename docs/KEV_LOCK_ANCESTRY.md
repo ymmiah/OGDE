@@ -11,3 +11,9 @@ GitHub Actions run 213 passed the full repository test and source-compilation wo
 ## Follow-up hardening — 8 November 2026
 
 The shared state-path guard additionally rejects existing directory and FIFO targets **before** the lock wrapper creates a sidecar. Two repository regression tests assert that these invalid targets leave no lock file behind. Four isolated guard tests (directory, FIFO, symlinked ancestor and valid missing target) passed on the local Python interpreter; source compilation passed. This isolated test does not exercise the complete signed KEV acceptance path. The new head commit's GitHub Actions CI was not yet available at the time of this documentation update.
+
+## Hardlink alias defence (8 November 2026)
+
+The lock wrapper now requires the opened lock inode to have exactly one hard link (`fstat().st_nlink == 1`) in addition to requiring a private regular file. This prevents the cooperative lock path from aliasing an unrelated, hardlinked private file. A regression test constructs a private unrelated file, hardlinks it as the lock, invokes locked acceptance, and asserts the original file and state remain unchanged. The lock inode is inspected after opening, reducing path-substitution exposure at that check; it is **not** a defence against an attacker with write access to trusted parent directories. No new external dependencies or public interfaces were introduced.
+
+**Verification status:** Source and regression test committed. Full repository CI for the new head has not yet been confirmed; do not treat this addition as independently validated until CI completes. The required v0.3 pilot gate is still outstanding.
