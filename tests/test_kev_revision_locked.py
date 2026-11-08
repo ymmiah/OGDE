@@ -44,6 +44,39 @@ class LockedRevisionTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             self.accept(2)
 
+    def test_checkpointed_invalid_signature_does_not_advance_and_valid_retry_succeeds(self):
+        """Exercise signature, external checkpoint and revision state as one workflow."""
+        first = self.accept(1)
+        checkpoint = first["revision_checkpoint"]
+        original = self.path.read_bytes()
+        invalid = self.envelope(2)
+        invalid["signature"]["value"] = base64.b64encode(b"x" * 64).decode()
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, invalid, state_path=self.path,
+                trusted_public_pem=self.pem, expected_signer="operator-lab",
+                as_of="2026-11-01", checkpoint=checkpoint)
+        self.assertEqual(self.path.read_bytes(), original)
+        second = self.accept(2, checkpoint=checkpoint)
+        self.assertTrue(second["previous_checkpoint_verified"])
+        self.assertTrue(second["signature_verified"])
+        self.assertFalse(second["publisher_authenticated"])
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 2)
+        with self.assertRaises(SecurityError):
+            self.accept(2, checkpoint=second["revision_checkpoint"])
+
+    def test_checkpointed_wrong_trust_anchor_does_not_advance(self):
+        first = self.accept(1)
+        original = self.path.read_bytes()
+        other_key = Ed25519PrivateKey.generate().public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.envelope(2), state_path=self.path,
+                trusted_public_pem=other_key, expected_signer="operator-lab",
+                as_of="2026-11-01", checkpoint=first["revision_checkpoint"])
+        self.assertEqual(self.path.read_bytes(), original)
+
     def test_lock_is_private(self):
         self.accept(1)
         self.assertEqual(Path(str(self.path) + ".lock").stat().st_mode & 0o777, 0o600)
