@@ -35,3 +35,31 @@ def make_review_audit_record(*, event, outcome, occurred_at, evidence_sha256=Non
     canonical = json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=True)
     record['record_sha256'] = sha256(canonical.encode('ascii')).hexdigest()
     return record
+
+
+def verify_review_audit_record(record):
+    """Validate the complete v1 schema and checksum without trusting record contents.
+
+    Returns bool. A checksum alone cannot authenticate an external publisher.
+    """
+    from hmac import compare_digest
+
+    required = frozenset({'schema', 'event', 'outcome', 'occurred_at',
+                          'evidence_sha256', 'record_sha256'})
+    if type(record) is not dict or record.keys() != required:
+        return False
+    if record['schema'] != 'ogde.review_audit.v1':
+        return False
+    checksum = record['record_sha256']
+    if type(checksum) is not str or not _DIGEST.fullmatch(checksum):
+        return False
+    try:
+        rebuilt = make_review_audit_record(
+            event=record['event'], outcome=record['outcome'],
+            occurred_at=record['occurred_at'], evidence_sha256=record['evidence_sha256'])
+    except (ValueError, TypeError, OverflowError):
+        return False
+    # Reject non-canonical timestamps and implicit normalisation.
+    if rebuilt['occurred_at'] != record['occurred_at']:
+        return False
+    return compare_digest(rebuilt['record_sha256'], checksum)
