@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from ogde.core import SecurityError
 from ogde.kev_revision_locked import accept_kev_attestation_locked
 
@@ -88,6 +89,30 @@ class LockAncestryTests(unittest.TestCase):
         self.assertEqual(outside.read_bytes(), b'private-original')
         self.assertEqual(lock.read_bytes(), b'private-original')
         self.assertEqual(state.read_text(), '{"schema_version":1}')
+
+    def test_fifo_swap_between_inspection_and_open_is_nonblocking(self):
+        state = self.root / 'real' / 'state.json'
+        state.write_bytes(b'operator-state')
+        state.chmod(0o600)
+        lock = self.root / 'real' / 'state.json.lock'
+        lock.write_bytes(b'private-lock')
+        lock.chmod(0o600)
+        original_open = os.open
+        observed = []
+
+        def swap_before_open(path, flags, mode=0o777):
+            if Path(path) == lock:
+                observed.append(flags)
+                lock.unlink()
+                os.mkfifo(lock, 0o600)
+            return original_open(path, flags, mode)
+
+        with patch('ogde.kev_revision_locked.os.open', side_effect=swap_before_open):
+            self.attempt(state)
+        self.assertEqual(len(observed), 1)
+        self.assertTrue(observed[0] & os.O_NONBLOCK)
+        self.assertTrue(lock.is_fifo())
+        self.assertEqual(state.read_bytes(), b'operator-state')
 
     def test_fifo_lock_rejected_without_opening_special_file(self):
         state = self.root / 'real' / 'state.json'
