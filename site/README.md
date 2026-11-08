@@ -1,6 +1,6 @@
 # OGDE public website — GitHub Pages
 
-A comprehensive, responsive, static public site for One Global Defence Ecosystem. Covers the mission, six platform capabilities, trust architecture, product surfaces, twelve proposed workstreams, actual implementation status, privacy principles and links to source documentation.
+A static public site for One Global Defence Ecosystem. It explains the verified-intelligence loop, the four product areas, what the command-line preview actually does, and which workstreams are still planned. The page stays HTML and CSS. It does not collect data.
 
 **Source:** `site/index.html`, `site/styles.css`, canonical assets in `assets/brand/`.
 
