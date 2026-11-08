@@ -64,6 +64,20 @@ class LockAncestryTests(unittest.TestCase):
         self.attempt(target)
         self.assertTrue((self.root / 'real' / 'state.json.lock').exists())
 
+    def test_hardlinked_lock_is_rejected_without_mutating_other_link(self):
+        state = self.root / 'real' / 'state.json'
+        state.write_text('{"schema_version":1}')
+        state.chmod(0o600)
+        outside = self.root / 'private-other-file'
+        outside.write_bytes(b'private-original')
+        outside.chmod(0o600)
+        lock = self.root / 'real' / 'state.json.lock'
+        os.link(outside, lock)
+        self.attempt(state)
+        self.assertEqual(outside.read_bytes(), b'private-original')
+        self.assertEqual(lock.read_bytes(), b'private-original')
+        self.assertEqual(state.read_text(), '{"schema_version":1}')
+
     def test_directory_target_does_not_create_lock(self):
         target = self.root / 'real' / 'nested'
         self.attempt(target)
