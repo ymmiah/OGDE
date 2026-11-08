@@ -34,6 +34,21 @@ class LockAncestryTests(unittest.TestCase):
         self.attempt(self.root / 'missing' / 'state.json')
         self.assertFalse((self.root / 'missing' / 'state.json.lock').exists())
 
+    def test_nested_symlink_does_not_modify_existing_state(self):
+        state = self.root / 'real' / 'nested' / 'state.json'
+        original = b'operator-owned-state-unchanged'
+        state.write_bytes(original)
+        self.attempt(self.root / 'alias' / 'nested' / 'state.json')
+        self.assertEqual(state.read_bytes(), original)
+        self.assertFalse((self.root / 'real' / 'nested' / 'state.json.lock').exists())
+
+    def test_existing_private_lock_not_opened_through_symlink(self):
+        lock = self.root / 'real' / 'nested' / 'state.json.lock'
+        lock.write_bytes(b'private-lock')
+        lock.chmod(0o600)
+        self.attempt(self.root / 'alias' / 'nested' / 'state.json')
+        self.assertEqual(lock.read_bytes(), b'private-lock')
+
     def test_target_symlink_does_not_create_lock(self):
         target = self.root / 'real' / 'state.json'
         target.symlink_to(self.root / 'real' / 'elsewhere')
