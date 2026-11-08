@@ -28,7 +28,8 @@ jobs:
           test -s site/public/assets/brand/ogde-icon.svg
           test -f site/public/.nojekyll
           test -f site/public/CNAME
-          grep -q 'Six connected capabilities' site/public/index.html
+          grep -q 'assets/brand/ogde-logo.svg' site/public/index.html
+          grep -q 'ogde inventory' site/public/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

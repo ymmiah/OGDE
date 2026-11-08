@@ -1,83 +1,369 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en-GB">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#071529">
-<meta name="description" content="One Global Defence Ecosystem: a privacy-first, verifiable cyber-defence platform. Explore the architecture, product capabilities, open roadmap and current engineering status.">
-<meta property="og:type" content="website"><meta property="og:title" content="OGDE — One Global Defence Ecosystem"><meta property="og:description" content="Verified intelligence. Local evidence. Human-governed defence.">
-<title>OGDE — One Global Defence Ecosystem</title>
-<link rel="icon" href="../assets/brand/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="../assets/brand/ogde-icon-32.png"><link rel="apple-touch-icon" href="../assets/brand/ogde-icon-180.png">
-<link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OGDE — One Global Defence Ecosystem</title>
+  <meta name="description" content="OGDE is an open framework for verifiable cyber-defence intelligence. Match signed evidence against a local inventory and produce a finding a person can review.">
+  <meta name="theme-color" content="#052355">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="OGDE — One Global Defence Ecosystem">
+  <meta property="og:description" content="Verified intelligence in. A local match. A finding a person can review.">
+  <link rel="icon" href="../assets/brand/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="../assets/brand/ogde-icon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="../assets/brand/ogde-icon-180.png">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<div class="announcement"><span class="status-dot"></span> ENGINEERING PREVIEW <span class="ann-sep">/</span> v0.3 verification phase <a href="#status">See current status <span aria-hidden="true">↗</span></a></div>
-<header class="topbar"><div class="wrap nav">
-<a class="brand" href="#top" aria-label="OGDE home"><img src="../assets/brand/ogde-icon.svg" alt="" width="38" height="38"><span>OGDE<span class="brand-sub">ONE GLOBAL DEFENCE ECOSYSTEM</span></span></a>
-<nav aria-label="Primary navigation"><a href="#platform">Platform</a><a href="#architecture">Architecture</a><a href="#roadmap">Roadmap</a><a href="#status">Progress</a><a href="#principles">Principles</a></nav>
-<a class="nav-action" href="https://github.com/ymmiah/OGDE">View GitHub <span aria-hidden="true">↗</span></a>
-</div></header>
-<main id="main">
-<section class="hero wrap" id="top">
-<div class="hero-copy"><div class="kicker"><span class="line"></span> OPEN DEFENSIVE INFRASTRUCTURE · PRIVACY BY DESIGN</div>
-<h1>A stronger digital world.<br><em>Built on verified trust.</em></h1>
-<p class="hero-text">One Global Defence Ecosystem is an emerging, privacy-first cybersecurity platform designed to help organisations verify threat intelligence, understand their exposure and make accountable security decisions — without surrendering control of their infrastructure.</p>
-<div class="actions"><a class="btn primary" href="#platform">Explore the platform <span aria-hidden="true">↗</span></a><a class="btn secondary" href="#roadmap">Development roadmap <span aria-hidden="true">↓</span></a></div>
-<div class="hero-foot"><span><b>LOCAL-FIRST</b> Sensitive inventories stay under owner control</span><span><b>HUMAN-GOVERNED</b> No autonomous production remediation</span></div>
-</div>
-<div class="hero-visual" aria-label="Illustration of the proposed OGDE verification and response architecture" role="img">
-<div class="visual-top"><span class="live-dot"></span> OGDE / TRUST ARCHITECTURE <span class="visual-right">CONCEPTUAL MODEL</span></div>
-<div class="visual-core"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="core"><span class="core-icon">◇</span><strong>OGDE</strong><small>DEFENCE CORE</small></div><div class="satellite s1"><span>01</span> VERIFIED INTELLIGENCE</div><div class="satellite s2"><span>02</span> LOCAL INVENTORY</div><div class="satellite s3"><span>03</span> RISK EVIDENCE</div><div class="satellite s4"><span>04</span> HUMAN REVIEW</div></div>
-<div class="visual-bottom"><span>PROVENANCE VERIFIED</span><span>PRIVACY PRESERVED</span><span>OWNER CONTROLLED</span></div>
-</div>
-</section>
-<section class="metrics"><div class="wrap metric-grid"><div><strong>01</strong><span>Shared intelligence, independently verified</span></div><div><strong>02</strong><span>Local matching, not centralised surveillance</span></div><div><strong>03</strong><span>Explainable findings and risk decisions</span></div><div><strong>04</strong><span>Human approval before consequential action</span></div></div></section>
-<section id="platform" class="section wrap"><div class="section-heading"><div><span class="eyebrow">THE PLATFORM</span><h2>One ecosystem. <em>Six connected capabilities.</em></h2></div><p>Built as interoperable components, starting with a small, verifiable, read-only security loop.</p></div>
-<div class="cap-grid">
-<article class="cap"><span class="cap-no">01 / INTELLIGENCE</span><div class="cap-icon">✧</div><h3>Verified threat intelligence</h3><p>Authenticated advisory sources, evidence provenance, freshness checks and publisher trust controls. A valid signature identifies a publisher; it does not prove a claim is true.</p></article>
-<article class="cap"><span class="cap-no">02 / DISCOVERY</span><div class="cap-icon">⌘</div><h3>Local asset discovery</h3><p>Owner-authorised WordPress, Linux and software dependency inventory. Sensitive inventory remains local unless an operator explicitly chooses otherwise.</p></article>
-<article class="cap"><span class="cap-no">03 / PRIORITY</span><div class="cap-icon">◈</div><h3>Context-aware risk engine</h3><p>Evidence-led findings that consider affected versions, exploit signals, exposure, criticality, uncertainty and VEX statements.</p></article>
-<article class="cap"><span class="cap-no">04 / ASSISTANCE</span><div class="cap-icon">✳</div><h3>AI security analyst</h3><p>Planned optional assistance for explaining findings and proposing mitigations, grounded in source evidence and clearly separated from trusted policy decisions.</p></article>
-<article class="cap"><span class="cap-no">05 / GOVERNANCE</span><div class="cap-icon">▣</div><h3>Human-approved response</h3><p>Auditable review queues, recommendations and eventually narrowly scoped response integrations that require explicit authorisation.</p></article>
-<article class="cap"><span class="cap-no">06 / COLLABORATION</span><div class="cap-icon">◎</div><h3>Federated defence network</h3><p>A future network for verifiable intelligence exchange between independent organisations, with privacy, revocation and publisher governance.</p></article>
-</div></section>
-<section id="architecture" class="section architecture"><div class="wrap"><div class="section-heading"><div><span class="eyebrow">HOW IT WORKS</span><h2>Evidence in. <em>Defensible decisions out.</em></h2></div><p>The architecture is designed to keep customer systems under customer control.</p></div>
-<div class="flow-grid"><div class="flow-step"><span>STEP 01</span><h3>Receive</h3><p>Load independently authenticated intelligence and check its provenance, freshness and integrity.</p></div><div class="flow-step"><span>STEP 02</span><h3>Match locally</h3><p>Compare evidence with an authorised software inventory without automatically uploading assets.</p></div><div class="flow-step"><span>STEP 03</span><h3>Explain risk</h3><p>Produce traceable findings, confidence levels and actionable review context.</p></div><div class="flow-step"><span>STEP 04</span><h3>Review &amp; decide</h3><p>Keep consequential decisions with authorised people and retain audit evidence.</p></div></div>
-<div class="scenario"><div><span class="eyebrow">REAL-WORLD USE CASE</span><h3>A vulnerable WordPress plugin appears in a security advisory.</h3></div><p>OGDE aims to verify the advisory, compare affected versions against a local site inventory, consider exploitation evidence and produce a reviewable priority. It should not flag every installation as compromised or silently change a website.</p></div>
-</div></section>
-<section class="section wrap" id="products"><div class="section-heading"><div><span class="eyebrow">PRODUCT SURFACES</span><h2>Built for operators, <em>analysts and developers.</em></h2></div></div>
-<div class="product-grid"><article><span>01</span><h3>Security Console</h3><p>Planned self-hosted dashboard for assets, risk, findings, review workflows and audit trails.</p><small>FUTURE PHASE</small></article><article><span>02</span><h3>Local Security Agent</h3><p>Planned consent-based collection for Linux and WordPress infrastructure.</p><small>FUTURE PHASE</small></article><article><span>03</span><h3>Developer Tools</h3><p>Existing Python CLI foundations for local inventory, reports and defensive verification.</p><small>EARLY IMPLEMENTATION</small></article><article><span>04</span><h3>Intelligence Network</h3><p>Longer-term multi-publisher, federated exchange of verifiable defensive evidence.</p><small>CONCEPT / PLANNED</small></article></div></section>
-<section id="roadmap" class="section roadmap"><div class="wrap"><div class="section-heading"><div><span class="eyebrow">DEVELOPMENT ROADMAP</span><h2>12 workstreams. <em>Gated delivery.</em></h2></div><p>These product workstreams are not twelve shipped versions. Operational progression follows the repository's milestone gates.</p></div>
-<div class="roadmap-grid">
-<article><span>01</span><h3>Security foundation</h3><p>Python core, signatures, privacy, anti-rollback, compatibility and CI.</p><small>IN PROGRESS</small></article>
-<article><span>02</span><h3>Verified intelligence</h3><p>KEV, OSV, EPSS, provenance and trust verification.</p><small>IN PROGRESS</small></article>
-<article><span>03</span><h3>Inventory &amp; matching</h3><p>WordPress, lockfiles, Linux and accurate affected-version logic.</p><small>EARLY IMPLEMENTATION</small></article>
-<article><span>04</span><h3>Risk prioritisation</h3><p>Exploit signals, exposure, criticality, confidence and VEX.</p><small>PLANNED EXPANSION</small></article>
-<article><span>05</span><h3>Local security agent</h3><p>Read-only collection with owner consent and constrained scope.</p><small>PLANNED</small></article>
-<article><span>06</span><h3>Audit &amp; evidence storage</h3><p>SQLite, migrations, replay protection and independent checkpoints.</p><small>PARTIAL PROTOTYPES</small></article>
-<article><span>07</span><h3>Dashboard &amp; API</h3><p>Accessible console, secure APIs, RBAC and review queues.</p><small>PLANNED</small></article>
-<article><span>08</span><h3>AI security analyst</h3><p>Optional, evidence-grounded explanation and assistance.</p><small>PLANNED</small></article>
-<article><span>09</span><h3>CI/CD integrations</h3><p>Developer workflows, SBOM, SARIF and controlled policy gates.</p><small>PLANNED</small></article>
-<article><span>10</span><h3>Federated defence</h3><p>Publisher governance, signed exchange and revocation.</p><small>PLANNED</small></article>
-<article><span>11</span><h3>Enterprise operations</h3><p>SSO, tenancy, monitoring, backups and administration.</p><small>PLANNED</small></article>
-<article><span>12</span><h3>Validation &amp; release</h3><p>Independent review, measured pilots and production readiness.</p><small>PLANNED</small></article>
-</div>
-<div class="roadmap-note"><strong>Release gate:</strong> v0.3 requires five pilot sites over four weeks and a published false-positive rate before progressing to later operational phases. <a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Read the source roadmap ↗</a></div>
-</div></section>
-<section id="status" class="section wrap"><div class="section-heading"><div><span class="eyebrow">TRANSPARENT ENGINEERING</span><h2>What exists today. <em>What does not.</em></h2></div><p>We distinguish implemented software, experimental branches and future product goals.</p></div>
-<div class="status-grid"><article class="status-card"><span class="status-label"><i class="dot green"></i> EARLY IMPLEMENTATION</span><h3>Core &amp; local tools</h3><ul><li>Python command-line foundations</li><li>Signed advisory primitives</li><li>Local WordPress and lockfile inventory</li><li>Initial finding reports and review logic</li><li>GitHub-based test automation</li></ul></article><article class="status-card"><span class="status-label"><i class="dot amber"></i> ACTIVE DEVELOPMENT</span><h3>M3 evidence security</h3><ul><li>KEV provenance and revision controls</li><li>Audit chain and checkpoint hardening</li><li>Trust and replay regression coverage</li><li>Integration and independent validation</li><li>Review of development pull requests</li></ul></article><article class="status-card"><span class="status-label"><i class="dot grey"></i> NOT YET RELEASED</span><h3>Operational platform</h3><ul><li>Production security console</li><li>Deployed customer agent</li><li>Public federated intelligence network</li><li>Autonomous remediation</li><li>Validated multi-site production pilot</li></ul></article></div>
-<div class="pilot"><strong>Current milestone: v0.3 verified loop</strong><p>The project has not demonstrated the required five-site, four-week pilot or published a measured false-positive rate. No claim of production-grade global protection is made.</p><a href="https://github.com/ymmiah/OGDE">Inspect the source and current changes ↗</a></div></section>
-<section id="principles" class="section principles"><div class="wrap"><div class="section-heading"><div><span class="eyebrow">NON-NEGOTIABLE PRINCIPLES</span><h2>Security without <em>unnecessary control.</em></h2></div></div><div class="principle-grid"><div><strong>01 / PRIVACY</strong><h3>Keep inventory local</h3><p>No default upload of customer asset inventories.</p></div><div><strong>02 / PROVENANCE</strong><h3>Verify independently</h3><p>Publisher identity and evidence authenticity require independently established trust.</p></div><div><strong>03 / GOVERNANCE</strong><h3>Human decisions</h3><p>No unapproved infrastructure modification or automatic escalation.</p></div><div><strong>04 / ACCOUNTABILITY</strong><h3>Explain every finding</h3><p>Traceable evidence, confidence and explicit limitations.</p></div></div></section>
-<section class="section wrap" id="try"><div class="try-panel"><div><span class="eyebrow">GET INVOLVED</span><h2>Follow the build.<br><em>Review the evidence.</em></h2><p>OGDE is developed openly in its GitHub repository. Review the source, inspect the roadmap or explore the current CLI preview. The website itself does not collect submissions or customer data.</p><div class="actions"><a class="btn primary" href="https://github.com/ymmiah/OGDE">Explore GitHub ↗</a><a class="btn secondary light" href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Read v0.3 specification ↗</a></div></div><div class="terminal"><div class="terminal-bar"><i></i><i></i><i></i><span>LOCAL DEVELOPMENT PREVIEW</span></div><pre><code><span class="comment"># Clone and inspect the project</span>
-git clone https://github.com/ymmiah/OGDE.git
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap bar">
+      <a class="mark" href="#top">
+        <img src="../assets/brand/ogde-logo.svg" width="168" height="65" alt="OGDE — One Global Defence Ecosystem">
+      </a>
+      <nav class="primary" aria-label="Primary">
+        <a href="#architecture">Loop</a>
+        <a href="#platform">Capabilities</a>
+        <a href="#status">Status</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#try">Start</a>
+      </nav>
+      <a class="text-link" href="https://github.com/ymmiah/OGDE">GitHub</a>
+      <details class="menu">
+        <summary>Menu</summary>
+        <nav aria-label="Mobile">
+          <a href="#architecture">Loop</a>
+          <a href="#platform">Capabilities</a>
+          <a href="#status">Status</a>
+          <a href="#roadmap">Roadmap</a>
+          <a href="#try">Start</a>
+          <a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Documentation</a>
+          <a href="https://github.com/ymmiah/OGDE">GitHub</a>
+        </nav>
+      </details>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero wrap" id="top">
+      <div class="hero-copy">
+        <p class="eyebrow">Open framework · engineering preview</p>
+        <h1>Verified intelligence, matched where the assets already are.</h1>
+        <p class="lede">OGDE is a privacy-first framework for cyber defence. It is meant to help an organisation identify, prioritise and — only with a person’s approval — respond to threats it can evidence, without handing over its systems, its data, or the decision to act. It is not another CVE list and not a chatbot.</p>
+        <div class="actions">
+          <a class="btn primary" href="#try">Get started</a>
+          <a class="btn" href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Documentation</a>
+          <a class="btn" href="https://github.com/ymmiah/OGDE">View source</a>
+        </div>
+        <p class="stage-note">v0.2.2 is the published command-line baseline. v0.3, the verified loop, is in development. This is not a deployed protection network, and the five-site pilot gate has not been met.</p>
+      </div>
+      <figure class="planes">
+        <figcaption>How a record moves. Only signed evidence crosses the boundary.</figcaption>
+        <div class="plane">
+          <p class="plane-name">Intelligence plane</p>
+          <ol>
+            <li><strong>Evidence</strong><span>Advisories from named sources. A signature identifies a publisher. It does not prove the claim.</span></li>
+            <li><strong>Distribution</strong><span>Ed25519 feeds work today. TUF and Sigstore are specified and not yet in the client.</span></li>
+          </ol>
+        </div>
+        <p class="boundary"><span>Trust boundary</span> Inventories, VEX decisions and reports do not leave the organisation.</p>
+        <div class="plane local">
+          <p class="plane-name">Your infrastructure</p>
+          <ol>
+            <li><strong>Inventory</strong><span>WordPress versions and lockfiles, read locally.</span></li>
+            <li><strong>Match</strong><span>Compare versions with the evidence you have accepted. Nothing is uploaded.</span></li>
+            <li><strong>Finding</strong><span>Confidence, the record it came from, and a priority a person can challenge.</span></li>
+          </ol>
+        </div>
+      </figure>
+    </section>
+
+    <section class="principles" id="principles" aria-labelledby="principles-title">
+      <div class="wrap">
+        <h2 id="principles-title">Four rules the software is built around</h2>
+        <ol>
+          <li>
+            <h3>Local control</h3>
+            <p>Inventories are collected on the operator’s machine. OGDE does not upload them by default.</p>
+          </li>
+          <li>
+            <h3>Separate trust from truth</h3>
+            <p>A valid signature shows who published a record. It is not evidence that the affected range is correct.</p>
+          </li>
+          <li>
+            <h3>Fail closed</h3>
+            <p>Missing trust, a bad schema, an expired feed or a mismatched digest is rejected. It is not quietly accepted.</p>
+          </li>
+          <li>
+            <h3>A person decides</h3>
+            <p>Findings recommend review. They do not patch, isolate or change a production system.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section wrap" id="architecture">
+      <div class="section-head">
+        <p class="eyebrow">The verified loop</p>
+        <h2>One pass, from a local inventory to a human decision.</h2>
+        <p>v0.3 has to prove this loop for WordPress sites and CI lockfiles before later operational phases start. The pilot — five authorised sites for four weeks, with a published false-positive rate — has not been run.</p>
+      </div>
+      <ol class="steps">
+        <li>
+          <span>01</span>
+          <h3>Discover locally</h3>
+          <p><code>ogde inventory</code> reads WordPress version headers and Composer or npm lockfiles on the operator’s machine. A broader consent-based agent is planned. The collector does not open <code>wp-config.php</code>, secrets or databases.</p>
+        </li>
+        <li>
+          <span>02</span>
+          <h3>Validate the advisory</h3>
+          <p><code>ogde assess</code> checks an Ed25519 signature against a publisher key pinned out of band, then rejects tampered, expired, replayed or rolled-back feeds. Provenance, freshness and TUF or Sigstore distribution are still being hardened or only specified.</p>
+        </li>
+        <li>
+          <span>03</span>
+          <h3>Match the inventory</h3>
+          <p>The preview compares exact versions. It does not yet apply every ecosystem’s range rules, and it does not upload the inventory to do the match.</p>
+        </li>
+        <li>
+          <span>04</span>
+          <h3>Prioritise, and say why</h3>
+          <p><code>ogde report</code> orders local findings by a KEV flag, then EPSS, then severity, then exposure, and prints the factors. Business criticality and mitigations beyond a VEX statement are not a finished model.</p>
+        </li>
+        <li>
+          <span>05</span>
+          <h3>Keep the uncertainty visible</h3>
+          <p>A signature does not make a claim true. When sources disagree, both claims stay. A suppressed finding remains in the local audit file.</p>
+        </li>
+        <li>
+          <span>06</span>
+          <h3>Decide, then share only on purpose</h3>
+          <p>Nothing in the preview remediates a system. Narrow response integrations, and any federated sharing, are future work and would stay voluntary.</p>
+        </li>
+      </ol>
+      <aside class="callout">
+        <h3>A WordPress plugin shows up in an advisory</h3>
+        <p>The useful outcome is specific: the advisory was signed by a publisher you pinned, the installed version is or is not inside the claimed range, and the report says how confident that match is. OGDE should not mark every site compromised, and it should not edit the site.</p>
+      </aside>
+    </section>
+
+    <section class="section band" id="platform">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="eyebrow">Capabilities</p>
+          <h2>What the repository actually does.</h2>
+          <p>Names below match the command-line preview on <code>main</code>. Planned surfaces are listed so the shape of the framework is visible. They are not shipped products.</p>
+        </div>
+        <div class="spec" role="table" aria-label="Capabilities and their current stage">
+          <div class="spec-row spec-head" role="row">
+            <span role="columnheader">Capability</span>
+            <span role="columnheader">Stage</span>
+            <span role="columnheader">What that means</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span role="cell"><strong>Signed advisory assessment</strong></span>
+            <span role="cell"><span class="pill implemented">Implemented</span></span>
+            <span role="cell">Ed25519 verification, a pinned publisher, exact-version matching and a local assessment. <code>ogde trust-add</code>, <code>ogde assess</code>, <code>ogde scan</code>.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span role="cell"><strong>Local inventory</strong></span>
+            <span role="cell"><span class="pill implemented">Implemented</span></span>
+            <span role="cell">CycloneDX from a WordPress tree, <code>composer.lock</code> and <code>package-lock.json</code>. Python environments can be listed with <code>ogde inventory-python</code>. Nothing is uploaded.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span role="cell"><strong>Finding report</strong></span>
+            <span role="cell"><span class="pill implemented">Implemented</span></span>
+            <span role="cell">Confidence, disagreement between sources, VEX suppression and a local audit file. Optional OSV queries exist only behind <code>--confirm-inventory-sharing</code>.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span role="cell"><strong>Offline KEV handling</strong></span>
+            <span role="cell"><span class="pill experimental">Experimental</span></span>
+            <span role="cell">A local snapshot can be checked against a pinned digest. OGDE does not fetch CISA, and a catalogue match is not proof that this asset is being exploited.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span role="cell"><strong>TUF and Sigstore</strong></span>
+            <span role="cell"><span class="pill specification">Specification</span></span>
+            <span role="cell">Roles, expiry and identity pinning are documented. The libraries are not dependencies, and the client still uses the Ed25519 verifier.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span role="cell"><strong>Response and sharing</strong></span>
+            <span role="cell"><span class="pill planned">Planned</span></span>
+            <span role="cell">No autonomous remediation. Future integrations would be narrow and authorised. Federated sharing would be voluntary and minimised. Neither exists as a service.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="products">
+      <div class="section-head">
+        <p class="eyebrow">Product areas</p>
+        <h2>Four areas. One of them is in your hands today.</h2>
+        <p>The names describe the intended platform. Only the developer tools exist as software you can run. There is no released console to screenshot.</p>
+      </div>
+      <div class="areas">
+        <article>
+          <h3>Developer tools</h3>
+          <p>The Python package and <code>ogde</code> command: signed feeds, local inventory and finding reports. Later CI gates and SARIF are not in this preview. <code>odge</code> remains a compatibility alias.</p>
+          <span class="pill implemented">Preview you can run</span>
+        </article>
+        <article>
+          <h3>Security console</h3>
+          <p>A future self-hosted view of assets, findings, intelligence, risk, audit and review. Not built. This website is not that console.</p>
+          <span class="pill planned">Planned</span>
+        </article>
+        <article>
+          <h3>Agent</h3>
+          <p>Consent-based local collection, read-only, for more than a lockfile. Not a released Linux agent. Collection rules would be an allow-list, not a search of the disk.</p>
+          <span class="pill planned">Planned</span>
+        </article>
+        <article>
+          <h3>Intelligence network</h3>
+          <p>Trusted, federated sharing between organisations that choose to contribute. Not operational. A publisher can describe a vulnerability. It cannot instruct another organisation’s systems.</p>
+          <span class="pill planned">Planned</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="status">
+      <div class="section-head">
+        <p class="eyebrow">Engineering status</p>
+        <h2>Implemented, in review, and not built.</h2>
+        <p>These labels describe the source tree. They are not a certification, a pilot result, or a statement that GitHub Pages is serving this design.</p>
+      </div>
+      <div class="status-grid">
+        <article>
+          <h3><span class="pill implemented">On main</span> Local tools</h3>
+          <ul>
+            <li>Python package and <code>ogde</code> command. <code>odge</code> is an alias, not a second implementation.</li>
+            <li>Signed feeds, trust pinning and exact-version matching.</li>
+            <li>WordPress and lockfile inventory.</li>
+            <li>Finding reports with confidence and VEX.</li>
+            <li>Unit tests in GitHub Actions for the library.</li>
+          </ul>
+        </article>
+        <article>
+          <h3><span class="pill experimental">Active development</span> Evidence checks</h3>
+          <ul>
+            <li>KEV revision and provenance checks in the tree.</li>
+            <li>Audit-chain and checkpoint tests.</li>
+            <li>Some of this work arrived through overlapping review branches. Read the changelog before treating a module as a stable command.</li>
+          </ul>
+        </article>
+        <article class="quiet">
+          <h3><span class="pill planned">Not released</span> Operational platform</h3>
+          <ul>
+            <li>Production console and customer agent.</li>
+            <li>Public federated intelligence network.</li>
+            <li>Autonomous remediation.</li>
+            <li>A measured multi-site pilot.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="roadmap">
+      <div class="section-head">
+        <p class="eyebrow">Roadmap</p>
+        <h2>Workstreams, not twelve shipped versions.</h2>
+        <p>These workstreams describe the product. They do not replace the repository’s engineering sequence, M3 to M8. The v0.3 pilot gate still has to be met before later operational phases.</p>
+      </div>
+      <ol class="roadmap">
+        <li><span>01</span><div><h3>Security foundation</h3><p>Python core, signatures, privacy limits, anti-rollback and continuous tests.</p></div><em>In progress</em></li>
+        <li><span>02</span><div><h3>Verified intelligence</h3><p>KEV, OSV, EPSS, provenance and publisher authentication. Live fetches are not the default.</p></div><em>In progress</em></li>
+        <li><span>03</span><div><h3>Inventory and matching</h3><p>WordPress and lockfiles are in the preview. Broader version-range matching is not.</p></div><em>Early</em></li>
+        <li><span>04</span><div><h3>Risk prioritisation</h3><p>Exploit signals, exposure, confidence and VEX, with the reason printed beside the rank.</p></div><em>Partial</em></li>
+        <li><span>05</span><div><h3>Local agent</h3><p>Read-only collection on Linux, with the owner’s consent and a field allow-list.</p></div><em>Planned</em></li>
+        <li><span>06</span><div><h3>Audit storage</h3><p>Append-only local evidence, replay protection and checkpoints a reviewer can re-check.</p></div><em>Prototypes</em></li>
+        <li><span>07</span><div><h3>Dashboard and API</h3><p>A console, authenticated APIs and review queues. Not in this preview.</p></div><em>Planned</em></li>
+        <li><span>08</span><div><h3>Assisted explanation</h3><p>Optional text that cites the evidence. It would not be allowed to override policy.</p></div><em>Planned</em></li>
+        <li><span>09</span><div><h3>CI integrations</h3><p>A build gate, SARIF and SBOM output beyond the current exit code.</p></div><em>Planned</em></li>
+        <li><span>10</span><div><h3>Federated defence</h3><p>More than one publisher, with revocation and a namespace each publisher cannot leave.</p></div><em>Planned</em></li>
+        <li><span>11</span><div><h3>Organisation operations</h3><p>Sign-in, tenancy, monitoring and backups for a future hosted tier. This website has none of those.</p></div><em>Planned</em></li>
+        <li><span>12</span><div><h3>Validation</h3><p>Independent review, a measured pilot and an honest production claim.</p></div><em>Planned</em></li>
+      </ol>
+      <div class="next">
+        <div>
+          <h3>Near-term engineering</h3>
+          <p>None of this is checked off by this website. The sequence is to audit the open M3 changes, dependencies and CI; consolidate what is reviewable; run the full tests; keep adversarial cases for bad signatures, replay, rollback, corruption and filesystem tricks; write down trust and checkpoint assumptions; rehearse a synthetic end-to-end demo; define the pilot protocol; then ask for a human security review.</p>
+        </div>
+        <div>
+          <h3>First success, not yet claimed</h3>
+          <p>Five authorised pilot sites over four weeks. A defined false-positive rate, published. Findings that can be reproduced from evidence. Regression, integration and security tests. No unauthorised transfer or remediation. A person approves every consequential change.</p>
+        </div>
+      </div>
+      <p class="more"><a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Read the v0.3 specification</a> · <a href="https://github.com/ymmiah/OGDE/blob/main/docs/ROADMAP_AUTONOMY.md">M3–M8 engineering note</a></p>
+    </section>
+
+    <section class="section band" id="try">
+      <div class="wrap start">
+        <div>
+          <p class="eyebrow">Get started</p>
+          <h2>Run the preview on your own machine.</h2>
+          <p>The commands below use the synthetic fixture in the repository. They do not contact OSV, KEV, EPSS or Wordfence, and they do not change a WordPress site. <code>ogde report</code> exits 2 when the example still has a visible finding. That is the demonstration, not an error.</p>
+          <ul class="links">
+            <li><a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">v0.3 specification</a></li>
+            <li><a href="https://github.com/ymmiah/OGDE/blob/main/docs/FEDERATION_V2.md">Signed-feed walkthrough</a></li>
+            <li><a href="https://github.com/ymmiah/OGDE/blob/main/SECURITY.md">Security policy</a></li>
+            <li><a href="https://github.com/ymmiah/OGDE">Repository</a></li>
+          </ul>
+        </div>
+        <div class="terminal">
+          <p class="terminal-label">Local quickstart</p>
+          <pre><code>git clone https://github.com/ymmiah/OGDE.git
 cd OGDE
 python -m pip install -e .
+mkdir -p .ogde-local
 
-<span class="comment"># Review available commands</span>
-ogde --help
+ogde inventory \
+  --wordpress examples/demo-site/wordpress \
+  --composer-lock examples/demo-site/composer.lock \
+  --package-lock examples/demo-site/package-lock.json \
+  --out .ogde-local/inventory.cdx.json
 
-<span class="comment"># Legacy entrypoint remains available</span>
-odge --help</code></pre></div></div></section>
-</main>
-<footer><div class="wrap footer-grid"><div><a class="brand" href="#top"><img src="../assets/brand/ogde-icon.svg" alt="" width="36" height="36"><span>OGDE<span class="brand-sub">ONE GLOBAL DEFENCE ECOSYSTEM</span></span></a><p>Building verifiable, privacy-preserving cyber defence — one independently tested milestone at a time.</p></div><div><strong>EXPLORE</strong><a href="#platform">Platform</a><a href="#architecture">Architecture</a><a href="#roadmap">Roadmap</a><a href="#status">Engineering status</a></div><div><strong>PROJECT</strong><a href="https://github.com/ymmiah/OGDE">GitHub repository</a><a href="https://github.com/ymmiah/OGDE/blob/main/SECURITY.md">Security policy</a><a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Technical specification</a><a href="https://github.com/ymmiah/OGDE/blob/main/LICENSE">MIT licence</a></div></div><div class="wrap footer-bottom"><span>© OGDE · One Global Defence Ecosystem</span><span>Static website · No tracking scripts · No account required</span></div></footer>
-</body></html>
+ogde report \
+  --findings examples/findings.example.json \
+  --vex examples/vex.example.json \
+  --out .ogde-local/findings.json \
+  --markdown .ogde-local/findings.md</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap contribute">
+      <div>
+        <h2>Contribute without sending us your inventory.</h2>
+        <p>Read the security policy before you report a vulnerability. Do not test OGDE against systems you do not have permission to assess. Pull requests are reviewed in the open repository. The software licence is MIT. Data-source terms, when a feed is published, will be recorded separately.</p>
+      </div>
+      <p class="more"><a href="https://github.com/ymmiah/OGDE/blob/main/SECURITY.md">Report a vulnerability</a> · <a href="https://github.com/ymmiah/OGDE">Open a pull request</a></p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-grid">
+      <div>
+        <img src="../assets/brand/ogde-logo.svg" width="148" height="57" alt="">
+        <p>An open framework for verifiable cyber-defence intelligence. Static page. No account, no analytics, no inventory upload.</p>
+      </div>
+      <nav aria-label="On this page">
+        <a href="#architecture">Loop</a>
+        <a href="#platform">Capabilities</a>
+        <a href="#products">Product areas</a>
+        <a href="#principles">Principles</a>
+        <a href="#status">Status</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#try">Start</a>
+      </nav>
+      <nav aria-label="Project">
+        <a href="https://github.com/ymmiah/OGDE">GitHub</a>
+        <a href="https://github.com/ymmiah/OGDE/blob/main/docs/V0.3.md">Documentation</a>
+        <a href="https://github.com/ymmiah/OGDE/blob/main/SECURITY.md">Security</a>
+        <a href="https://github.com/ymmiah/OGDE/blob/main/LICENSE">MIT licence</a>
+        <a href="https://github.com/ymmiah/OGDE/blob/main/assets/brand/README.md">Brand assets</a>
+      </nav>
+    </div>
+    <div class="wrap footer-meta">
+      <span>OGDE · One Global Defence Ecosystem</span>
+      <span>No tracking scripts</span>
+    </div>
+  </footer>
+</body>
+</html>
