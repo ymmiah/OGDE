@@ -49,6 +49,21 @@ class LockAncestryTests(unittest.TestCase):
         self.attempt(self.root / 'alias' / 'nested' / 'state.json')
         self.assertEqual(lock.read_bytes(), b'private-lock')
 
+    def test_world_readable_state_does_not_create_lock(self):
+        target = self.root / 'real' / 'state.json'
+        target.write_text('{}')
+        target.chmod(0o644)
+        self.attempt(target)
+        self.assertFalse((self.root / 'real' / 'state.json.lock').exists())
+        self.assertEqual(target.read_text(), '{}')
+
+    def test_private_regular_state_reaches_signature_validation(self):
+        target = self.root / 'real' / 'state.json'
+        target.write_text('{"schema_version":1,"kind":"ogde-kev-revision-state","signers":{}}')
+        target.chmod(0o600)
+        self.attempt(target)
+        self.assertTrue((self.root / 'real' / 'state.json.lock').exists())
+
     def test_directory_target_does_not_create_lock(self):
         target = self.root / 'real' / 'nested'
         self.attempt(target)
