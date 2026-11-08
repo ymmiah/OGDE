@@ -49,6 +49,17 @@ class LockAncestryTests(unittest.TestCase):
         self.attempt(self.root / 'alias' / 'nested' / 'state.json')
         self.assertEqual(lock.read_bytes(), b'private-lock')
 
+    def test_directory_target_does_not_create_lock(self):
+        target = self.root / 'real' / 'nested'
+        self.attempt(target)
+        self.assertFalse((self.root / 'real' / 'nested.lock').exists())
+
+    def test_fifo_target_does_not_create_lock(self):
+        target = self.root / 'real' / 'pipe'
+        os.mkfifo(target)
+        self.attempt(target)
+        self.assertFalse((self.root / 'real' / 'pipe.lock').exists())
+
     def test_target_symlink_does_not_create_lock(self):
         target = self.root / 'real' / 'state.json'
         target.symlink_to(self.root / 'real' / 'elsewhere')
