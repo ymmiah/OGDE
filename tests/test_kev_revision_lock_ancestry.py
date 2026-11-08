@@ -89,6 +89,26 @@ class LockAncestryTests(unittest.TestCase):
         self.assertEqual(lock.read_bytes(), b'private-original')
         self.assertEqual(state.read_text(), '{"schema_version":1}')
 
+    def test_fifo_lock_rejected_without_opening_special_file(self):
+        state = self.root / 'real' / 'state.json'
+        state.write_bytes(b'operator-state')
+        state.chmod(0o600)
+        lock = self.root / 'real' / 'state.json.lock'
+        os.mkfifo(lock, 0o600)
+        self.attempt(state)
+        self.assertTrue(lock.is_fifo())
+        self.assertEqual(state.read_bytes(), b'operator-state')
+
+    def test_directory_lock_rejected_without_state_mutation(self):
+        state = self.root / 'real' / 'state.json'
+        state.write_bytes(b'operator-state')
+        state.chmod(0o600)
+        lock = self.root / 'real' / 'state.json.lock'
+        lock.mkdir()
+        self.attempt(state)
+        self.assertTrue(lock.is_dir())
+        self.assertEqual(state.read_bytes(), b'operator-state')
+
     def test_world_readable_lock_rejected_without_state_mutation(self):
         state = self.root / 'real' / 'state.json'
         state.write_bytes(b'operator-state')
