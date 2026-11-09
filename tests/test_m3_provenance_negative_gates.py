@@ -274,5 +274,26 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertFalse(second["publisher_authenticated"])
 
 
+    def test_hardlinked_revision_state_rejected_without_mutation(self):
+        """An attacker-controlled second link must not be accepted as private state."""
+        import os
+
+        if not hasattr(os, "link"):
+            self.skipTest("Hard links unavailable")
+        self.accept(self.signed())
+        before = self.state.read_bytes()
+        second_link = Path(self.directory.name) / "state-backup-link.json"
+        try:
+            os.link(self.state, second_link)
+        except OSError as exc:
+            self.skipTest(f"Hard links unsupported on this filesystem: {exc}")
+        with self.assertRaises(SecurityError):
+            load_kev_revision_state(self.state)
+        with self.assertRaises(SecurityError):
+            self.accept(self.signed(revision=2))
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertEqual(second_link.read_bytes(), before)
+
+
 if __name__ == "__main__":
     unittest.main()
