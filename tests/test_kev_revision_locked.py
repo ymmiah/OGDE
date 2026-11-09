@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from ogde.core import SecurityError, canonical, public_key_id
@@ -78,6 +79,36 @@ class LockedRevisionTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             self.accept(2)
         self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
+
+    def test_replaced_lock_inode_rejected_before_state_update(self):
+        import fcntl
+        original_flock = fcntl.flock
+        lock = Path(str(self.path) + ".lock")
+        displaced = Path(self.temp.name) / "displaced-lock"
+
+        def replace_after_acquiring(fd, operation):
+            original_flock(fd, operation)
+            lock.rename(displaced)
+            lock.touch(mode=0o600)
+
+        with patch("fcntl.flock", side_effect=replace_after_acquiring):
+            with self.assertRaisesRegex(SecurityError, "changed during acquisition"):
+                self.accept(1)
+        self.assertFalse(self.path.exists())
+
+    def test_unlinked_lock_inode_rejected_before_state_update(self):
+        import fcntl
+        original_flock = fcntl.flock
+        lock = Path(str(self.path) + ".lock")
+
+        def unlink_after_acquiring(fd, operation):
+            original_flock(fd, operation)
+            lock.unlink()
+
+        with patch("fcntl.flock", side_effect=unlink_after_acquiring):
+            with self.assertRaisesRegex(SecurityError, "changed during acquisition"):
+                self.accept(1)
+        self.assertFalse(self.path.exists())
 
     def test_invalid_signature_does_not_advance(self):
         self.accept(1)
