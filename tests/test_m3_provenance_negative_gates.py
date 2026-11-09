@@ -100,5 +100,36 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertFalse(self.state.exists())
 
 
+    def test_locked_checkpoint_rejects_wrong_identity_without_advancing(self):
+        """Exercise the production locking boundary, not just the single-writer API."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        options = {
+            "state_path": self.state,
+            "trusted_public_pem": self.pem,
+            "expected_signer": "operator-lab",
+            "as_of": "2026-11-09",
+        }
+        first = accept_kev_attestation_locked(self.snapshot, self.signed(), **options)
+        before = self.state.read_bytes()
+        checkpoint = first["revision_checkpoint"]
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(revision=2, signer="unapproved-publisher"),
+                checkpoint=checkpoint, **options
+            )
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertEqual(load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 1)
+        second = accept_kev_attestation_locked(
+            self.snapshot, self.signed(revision=2), checkpoint=checkpoint, **options
+        )
+        self.assertTrue(second["previous_checkpoint_verified"])
+        self.assertFalse(second["publisher_authenticated"])
+        self.assertEqual(load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
