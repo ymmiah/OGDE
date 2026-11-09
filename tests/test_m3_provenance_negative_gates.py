@@ -1,0 +1,104 @@
+"""Fail-closed M3 operator-attestation tests; NOT TUF/Sigstore publisher verification.
+
+These tests deliberately distinguish a pinned operator signature from independently
+authenticated CISA provenance. No network access or publisher trust promotion.
+"""
+import base64
+import hashlib
+import tempfile
+import unittest
+from pathlib import Path
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from ogde.core import SecurityError, canonical, public_key_id
+from ogde.kev_attestation import verify_kev_attestation
+from ogde.kev_revision_state import accept_kev_attestation, load_kev_revision_state
+
+
+class M3ProvenanceNegativeGateTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.state = Path(self.directory.name) / "revision.json"
+        self.key = Ed25519PrivateKey.generate()
+        self.pem = self.key.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        self.snapshot = {
+            "vulnerabilities": [{"cveID": "CVE-2026-12345", "dateAdded": "2026-10-25"}]
+        }
+
+    def signed(self, revision=1, signer="operator-lab", valid_until="2026-11-10"):
+        statement = {
+            "kind": "ogde-kev-snapshot-attestation",
+            "schema_version": 1,
+            "signer_id": signer,
+            "snapshot_sha256": hashlib.sha256(canonical(self.snapshot)).hexdigest(),
+            "revision": revision,
+            "valid_from": "2026-10-25",
+            "valid_until": valid_until,
+        }
+        return {
+            "statement": statement,
+            "signature": {
+                "algorithm": "Ed25519",
+                "key_id": public_key_id(self.key.public_key()),
+                "value": base64.b64encode(self.key.sign(canonical(statement))).decode("ascii"),
+            },
+        }
+
+    def accept(self, attestation, **overrides):
+        options = {
+            "state_path": self.state,
+            "trusted_public_pem": self.pem,
+            "expected_signer": "operator-lab",
+            "as_of": "2026-11-09",
+        }
+        options.update(overrides)
+        return accept_kev_attestation(self.snapshot, attestation, **options)
+
+    def test_valid_operator_signature_never_claims_publisher_authentication(self):
+        receipt = self.accept(self.signed())
+        self.assertTrue(receipt["signature_verified"])
+        self.assertIs(receipt["publisher_authenticated"], False)
+        self.assertEqual(receipt["decision"], "human-review")
+
+    def test_valid_signature_wrong_identity_does_not_create_state(self):
+        with self.assertRaises(SecurityError):
+            self.accept(self.signed(signer="unapproved-publisher"))
+        self.assertFalse(self.state.exists())
+
+    def test_expired_valid_signature_does_not_advance_existing_state(self):
+        self.accept(self.signed())
+        original = self.state.read_bytes()
+        with self.assertRaises(SecurityError):
+            self.accept(self.signed(revision=2, valid_until="2026-11-08"))
+        self.assertEqual(self.state.read_bytes(), original)
+        self.assertEqual(load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 1)
+
+    def test_unapproved_signing_key_does_not_advance_existing_state(self):
+        self.accept(self.signed())
+        original = self.state.read_bytes()
+        unknown = Ed25519PrivateKey.generate()
+        unknown_pem = unknown.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        with self.assertRaises(SecurityError):
+            self.accept(self.signed(revision=2), trusted_public_pem=unknown_pem)
+        self.assertEqual(self.state.read_bytes(), original)
+
+    def test_unrecognised_command_field_rejected_even_when_resigned(self):
+        attestation = self.signed()
+        attestation["statement"]["command"] = "execute"
+        attestation["signature"]["value"] = base64.b64encode(
+            self.key.sign(canonical(attestation["statement"]))
+        ).decode("ascii")
+        with self.assertRaises(SecurityError):
+            self.accept(attestation)
+        self.assertFalse(self.state.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
