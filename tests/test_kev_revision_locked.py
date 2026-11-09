@@ -110,6 +110,33 @@ class LockedRevisionTests(unittest.TestCase):
                 self.accept(1)
         self.assertFalse(self.path.exists())
 
+    def test_lock_replacement_preserves_existing_revision_and_checkpoint(self):
+        import fcntl
+        original_flock = fcntl.flock
+        for action in ("replace", "unlink"):
+            with self.subTest(action=action):
+                # Use a fresh state directory for each simulated race.
+                with tempfile.TemporaryDirectory() as directory:
+                    self.path = Path(directory) / "revision.json"
+                    first = self.accept(1)
+                    original_bytes = self.path.read_bytes()
+                    lock = Path(str(self.path) + ".lock")
+
+                    def disrupt_after_acquiring(fd, operation):
+                        original_flock(fd, operation)
+                        if action == "replace":
+                            lock.rename(Path(directory) / "displaced-lock")
+                            lock.touch(mode=0o600)
+                        else:
+                            lock.unlink()
+
+                    with patch("fcntl.flock", side_effect=disrupt_after_acquiring):
+                        with self.assertRaisesRegex(SecurityError, "changed during acquisition"):
+                            self.accept(2, checkpoint=first["revision_checkpoint"])
+                    self.assertEqual(self.path.read_bytes(), original_bytes)
+                    self.assertEqual(
+                        load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
+
     def test_invalid_signature_does_not_advance(self):
         self.accept(1)
         envelope = self.envelope(2)
