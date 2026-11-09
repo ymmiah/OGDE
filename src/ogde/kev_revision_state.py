@@ -42,8 +42,8 @@ def load_kev_revision_state(path: str | Path) -> dict:
     if not target.exists():
         return {"schema_version": 1, "kind": _EMPTY["kind"], "signers": {}}
     info = target.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
-        raise SecurityError("Revision state must be a private regular file")
+    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_nlink != 1:
+        raise SecurityError("Revision state must be a private, singly linked regular file")
     return _validate(load_json_file(target))
 
 
