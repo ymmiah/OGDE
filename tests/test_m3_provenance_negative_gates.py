@@ -131,5 +131,33 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertEqual(load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 2)
 
 
+    def test_locked_checkpoint_rejects_valid_replay_after_state_rollback(self):
+        """An externally retained checkpoint detects rollback despite a valid signature."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        options = {
+            "state_path": self.state,
+            "trusted_public_pem": self.pem,
+            "expected_signer": "operator-lab",
+            "as_of": "2026-11-09",
+        }
+        first = accept_kev_attestation_locked(self.snapshot, self.signed(), **options)
+        older_state = self.state.read_bytes()
+        second = accept_kev_attestation_locked(
+            self.snapshot, self.signed(revision=2),
+            checkpoint=first["revision_checkpoint"], **options
+        )
+        self.state.write_bytes(older_state)
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(revision=3),
+                checkpoint=second["revision_checkpoint"], **options
+            )
+        self.assertEqual(self.state.read_bytes(), older_state)
+
+
 if __name__ == "__main__":
     unittest.main()
