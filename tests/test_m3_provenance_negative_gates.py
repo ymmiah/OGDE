@@ -239,5 +239,40 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertFalse(second["publisher_authenticated"])
 
 
+    def test_locked_checkpoint_rejects_same_revision_replay_without_mutation(self):
+        """A signed replay cannot reuse an accepted revision or corrupt the checkpoint."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+        from ogde.kev_revision_checkpoint import create_kev_revision_checkpoint
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        options = {
+            "state_path": self.state,
+            "trusted_public_pem": self.pem,
+            "expected_signer": "operator-lab",
+            "as_of": "2026-11-09",
+        }
+        first = accept_kev_attestation_locked(self.snapshot, self.signed(), **options)
+        before = self.state.read_bytes()
+        checkpoint = first["revision_checkpoint"]
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(revision=1),
+                checkpoint=checkpoint, **options
+            )
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertEqual(
+            create_kev_revision_checkpoint(load_kev_revision_state(self.state)),
+            checkpoint,
+        )
+        second = accept_kev_attestation_locked(
+            self.snapshot, self.signed(revision=2),
+            checkpoint=checkpoint, **options
+        )
+        self.assertTrue(second["previous_checkpoint_verified"])
+        self.assertFalse(second["publisher_authenticated"])
+
+
 if __name__ == "__main__":
     unittest.main()
