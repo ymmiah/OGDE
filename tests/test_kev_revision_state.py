@@ -96,6 +96,31 @@ class RevisionStateTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             self.accept()
 
+    def test_symlinked_state_directory_rejected_without_external_write(self):
+        """State must not escape through a symlinked directory ancestor."""
+        real_directory = Path(self.tmp.name) / "real"
+        real_directory.mkdir()
+        linked_directory = Path(self.tmp.name) / "linked"
+        try:
+            linked_directory.symlink_to(real_directory, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Directory symlinks unavailable")
+        self.path = linked_directory / "state.json"
+        with self.assertRaises(SecurityError):
+            self.accept()
+        self.assertFalse((real_directory / "state.json").exists())
+
+    def test_dangling_state_symlink_rejected_without_creating_target(self):
+        """A missing symlink destination is not an empty revision registry."""
+        missing = Path(self.tmp.name) / "missing.json"
+        try:
+            self.path.symlink_to(missing)
+        except (OSError, NotImplementedError):
+            self.skipTest("Symlinks unavailable")
+        with self.assertRaises(SecurityError):
+            self.accept()
+        self.assertFalse(missing.exists())
+
     def test_insecure_state_rejected(self):
         self.accept()
         os.chmod(self.path, 0o644)
