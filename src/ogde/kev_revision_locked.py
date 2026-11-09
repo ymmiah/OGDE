@@ -48,6 +48,16 @@ def accept_kev_attestation_locked(snapshot: object, attestation: object, *,
         if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_nlink != 1:
             raise SecurityError("Revision lock must be a private, singly linked regular file")
         fcntl.flock(fd, fcntl.LOCK_EX)
+        # The pathname may be replaced while flock waits. In that case
+        # the acquired lock protects an obsolete inode, not future writers.
+        try:
+            current = os.stat(lock, follow_symlinks=False)
+        except OSError as exc:
+            raise SecurityError("Revision lock changed during acquisition") from exc
+        if (not stat.S_ISREG(current.st_mode)
+                or (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino)
+                or current.st_nlink != 1 or current.st_mode & 0o077):
+            raise SecurityError("Revision lock changed during acquisition")
         if checkpoint is not None:
             verify_kev_revision_checkpoint(load_kev_revision_state(target), checkpoint)
         receipt = accept_kev_attestation(
