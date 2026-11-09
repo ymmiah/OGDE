@@ -62,6 +62,23 @@ class LockedRevisionTests(unittest.TestCase):
             self.accept(2)
         self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
 
+    def test_fifo_lock_rejected_without_blocking(self):
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("FIFO unsupported")
+        os.mkfifo(str(self.path) + ".lock", 0o600)
+        with self.assertRaises(SecurityError):
+            self.accept(1)
+        self.assertFalse(self.path.exists())
+
+    def test_hardlinked_lock_rejected_without_advancing(self):
+        self.accept(1)
+        lock = Path(str(self.path) + ".lock")
+        alias = Path(self.temp.name) / "lock-alias"
+        os.link(lock, alias)
+        with self.assertRaises(SecurityError):
+            self.accept(2)
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
+
     def test_invalid_signature_does_not_advance(self):
         self.accept(1)
         envelope = self.envelope(2)

@@ -67,6 +67,28 @@ class RevisionStateTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             self.accept(self.envelope(2, other), trusted_public_pem=pem)
 
+    def test_tampered_snapshot_does_not_advance_revision(self):
+        self.accept()
+        original = self.snapshot
+        envelope = self.envelope(2)
+        try:
+            self.snapshot = {"vulnerabilities": [{"cveID": "CVE-2026-99999", "dateAdded": "2026-10-25"}]}
+            with self.assertRaises(SecurityError):
+                self.accept(envelope)
+        finally:
+            self.snapshot = original
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
+
+    def test_wrong_independently_pinned_key_does_not_advance(self):
+        self.accept()
+        other = Ed25519PrivateKey.generate()
+        other_pem = other.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        with self.assertRaises(SecurityError):
+            self.accept(self.envelope(2), trusted_public_pem=other_pem)
+        self.assertEqual(load_kev_revision_state(self.path)["signers"]["operator-lab"]["revision"], 1)
+
     def test_symlink_state_rejected(self):
         target = Path(self.tmp.name) / "other"
         target.write_text("{}")
