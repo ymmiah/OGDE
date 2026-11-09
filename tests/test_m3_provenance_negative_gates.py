@@ -159,5 +159,48 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertEqual(self.state.read_bytes(), older_state)
 
 
+    def test_locked_checkpoint_rejects_unapproved_valid_key_rotation(self):
+        """A new correctly signed key cannot silently replace a pinned signer key."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        options = {
+            "state_path": self.state,
+            "expected_signer": "operator-lab",
+            "as_of": "2026-11-09",
+        }
+        first = accept_kev_attestation_locked(
+            self.snapshot, self.signed(), trusted_public_pem=self.pem, **options
+        )
+        before = self.state.read_bytes()
+        replacement = Ed25519PrivateKey.generate()
+        replacement_pem = replacement.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        statement = self.signed(revision=2)["statement"]
+        rotated = {
+            "statement": statement,
+            "signature": {
+                "algorithm": "Ed25519",
+                "key_id": public_key_id(replacement.public_key()),
+                "value": base64.b64encode(replacement.sign(canonical(statement))).decode("ascii"),
+            },
+        }
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, rotated, trusted_public_pem=replacement_pem,
+                checkpoint=first["revision_checkpoint"], **options
+            )
+        self.assertEqual(self.state.read_bytes(), before)
+        second = accept_kev_attestation_locked(
+            self.snapshot, self.signed(revision=2), trusted_public_pem=self.pem,
+            checkpoint=first["revision_checkpoint"], **options
+        )
+        self.assertTrue(second["previous_checkpoint_verified"])
+        self.assertEqual(load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 2)
+
+
 if __name__ == "__main__":
     unittest.main()
