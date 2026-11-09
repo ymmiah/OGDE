@@ -202,5 +202,42 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertEqual(load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 2)
 
 
+    def test_locked_checkpoint_rejects_resigned_snapshot_mismatch_without_state_change(self):
+        """A correctly signed digest must still bind to the actual KEV snapshot."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        options = {
+            "state_path": self.state,
+            "trusted_public_pem": self.pem,
+            "expected_signer": "operator-lab",
+            "as_of": "2026-11-09",
+        }
+        first = accept_kev_attestation_locked(self.snapshot, self.signed(), **options)
+        before = self.state.read_bytes()
+        changed_snapshot = {
+            "vulnerabilities": [
+                {"cveID": "CVE-2026-99999", "dateAdded": "2026-10-25"}
+            ]
+        }
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                changed_snapshot, self.signed(revision=2),
+                checkpoint=first["revision_checkpoint"], **options
+            )
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertEqual(
+            load_kev_revision_state(self.state)["signers"]["operator-lab"]["revision"], 1
+        )
+        second = accept_kev_attestation_locked(
+            self.snapshot, self.signed(revision=2),
+            checkpoint=first["revision_checkpoint"], **options
+        )
+        self.assertTrue(second["previous_checkpoint_verified"])
+        self.assertFalse(second["publisher_authenticated"])
+
+
 if __name__ == "__main__":
     unittest.main()
