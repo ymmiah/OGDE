@@ -45,6 +45,20 @@ class AttestationTests(unittest.TestCase):
         self.assertEqual(result["decision"], "human-review")
         self.assertIn("not CISA as publisher", " ".join(result["limitations"]))
 
+    def test_operator_named_cisa_is_not_publisher_authentication(self):
+        """Even a pinned signer label claiming CISA cannot prove CISA provenance."""
+        self.statement["signer_id"] = "CISA"
+        result = self.verify(expected_signer="CISA")
+        self.assertTrue(result["signature_verified"])
+        self.assertIs(result["publisher_authenticated"], False)
+        self.assertEqual(result["decision"], "human-review")
+
+    def test_signed_attestation_exceeding_validity_limit_rejected(self):
+        """A genuine operator signature cannot extend the maximum trust window."""
+        self.statement["valid_until"] = "2026-12-01"
+        with self.assertRaisesRegex(SecurityError, "outside validity policy"):
+            self.verify()
+
     def test_forged_publisher_claim_in_statement_rejected(self):
         """Signed but unsupported provenance fields must fail schema validation."""
         self.statement["publisher_authenticated"] = True
