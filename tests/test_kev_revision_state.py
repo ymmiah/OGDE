@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from ogde.core import SecurityError, canonical, public_key_id
@@ -126,6 +127,16 @@ class RevisionStateTests(unittest.TestCase):
         os.chmod(self.path, 0o644)
         with self.assertRaises(SecurityError):
             load_kev_revision_state(self.path)
+
+    @unittest.skipUnless(hasattr(os, "getuid"), "POSIX ownership checks required")
+    def test_foreign_owned_state_rejected_without_modification(self):
+        """A private mode alone does not make another user\'s state trustworthy."""
+        self.accept()
+        before = self.path.read_bytes()
+        with patch("ogde.kev_revision_state.os.getuid", return_value=self.path.stat().st_uid + 1):
+            with self.assertRaisesRegex(SecurityError, "owned by the current user"):
+                load_kev_revision_state(self.path)
+        self.assertEqual(self.path.read_bytes(), before)
 
     def test_corrupt_state_rejected(self):
         self.accept()
