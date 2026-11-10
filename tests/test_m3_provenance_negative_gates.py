@@ -340,5 +340,30 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertEqual(lock.stat().st_mode & 0o777, 0o644)
 
 
+    @unittest.skipUnless(hasattr(__import__("os"), "getuid"), "POSIX ownership checks required")
+    def test_locked_accept_rejects_foreign_owned_sidecar_without_state_creation(self):
+        """A private lock owned by another user must not serialise trusted state."""
+        import os
+        from unittest.mock import patch
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("Secure no-follow locks required")
+        lock = Path(str(self.state) + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        before = lock.read_bytes()
+        with patch("ogde.kev_revision_locked.os.getuid", return_value=lock.stat().st_uid + 1):
+            with self.assertRaisesRegex(SecurityError, "owned by the current user"):
+                accept_kev_attestation_locked(
+                    self.snapshot, self.signed(),
+                    state_path=self.state, trusted_public_pem=self.pem,
+                    expected_signer="operator-lab", as_of="2026-11-09"
+                )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.read_bytes(), before)
+
+
+
 if __name__ == "__main__":
     unittest.main()
