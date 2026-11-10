@@ -112,6 +112,24 @@ class LockedRevisionTests(unittest.TestCase):
         self.assertFalse(self.path.exists())
         self.assertEqual(lock.stat().st_mode & 0o777, 0o640)
 
+    def test_lock_hardlinked_during_acquisition_rejected(self):
+        """A new hard link after flock must not advance revision state."""
+        import fcntl
+        original_flock = fcntl.flock
+        lock = Path(str(self.path) + ".lock")
+        alias = Path(self.temp.name) / "late-lock-alias"
+
+        def link_after_acquiring(fd, operation):
+            original_flock(fd, operation)
+            os.link(lock, alias)
+
+        with patch("fcntl.flock", side_effect=link_after_acquiring):
+            with self.assertRaisesRegex(SecurityError, "changed during acquisition"):
+                self.accept(1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(lock.stat().st_nlink, 2)
+        self.assertTrue(alias.samefile(lock))
+
     def test_unlinked_lock_inode_rejected_before_state_update(self):
         import fcntl
         original_flock = fcntl.flock
