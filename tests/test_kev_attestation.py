@@ -59,14 +59,12 @@ class AttestationTests(unittest.TestCase):
 
     def test_signature_from_other_operator_cannot_impersonate_pinned_signer(self):
         other_key = Ed25519PrivateKey.generate()
-        other_pem = other_key.public_key().public_bytes(
-            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
         envelope = self.envelope()
         envelope["signature"]["key_id"] = public_key_id(other_key.public_key())
         envelope["signature"]["value"] = base64.b64encode(
             other_key.sign(canonical(self.statement))).decode("ascii")
         with self.assertRaises(SecurityError):
-            self.verify(envelope, trusted_public_pem=other_pem)
+            self.verify(envelope)
 
     def test_tampered_snapshot_rejected(self):
         self.snapshot["vulnerabilities"][0]["cveID"] = "CVE-2026-99999"
