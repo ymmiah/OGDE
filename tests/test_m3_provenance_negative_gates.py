@@ -274,5 +274,133 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertFalse(second["publisher_authenticated"])
 
 
+    def test_hardlinked_revision_state_rejected_without_mutation(self):
+        """An attacker-controlled second link must not be accepted as private state."""
+        import os
+
+        if not hasattr(os, "link"):
+            self.skipTest("Hard links unavailable")
+        self.accept(self.signed())
+        before = self.state.read_bytes()
+        second_link = Path(self.directory.name) / "state-backup-link.json"
+        try:
+            os.link(self.state, second_link)
+        except OSError as exc:
+            self.skipTest(f"Hard links unsupported on this filesystem: {exc}")
+        with self.assertRaises(SecurityError):
+            load_kev_revision_state(self.state)
+        with self.assertRaises(SecurityError):
+            self.accept(self.signed(revision=2))
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertEqual(second_link.read_bytes(), before)
+
+
+    def test_locked_accept_rejects_hardlinked_sidecar_without_state_creation(self):
+        """A sidecar alias must not be accepted as an exclusive writer lock."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        lock = Path(str(self.state) + ".lock")
+        alias = Path(self.directory.name) / "lock-alias"
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        try:
+            os.link(lock, alias)
+        except (OSError, NotImplementedError):
+            self.skipTest("Hard links unavailable")
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(),
+                state_path=self.state, trusted_public_pem=self.pem,
+                expected_signer="operator-lab", as_of="2026-11-09"
+            )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.stat().st_nlink, 2)
+        self.assertEqual(lock.read_bytes(), b"")
+
+    def test_locked_accept_rejects_insecure_sidecar_without_state_creation(self):
+        """A pre-existing world-readable lock cannot guard revision acceptance."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        lock = Path(str(self.state) + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o644)
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(),
+                state_path=self.state, trusted_public_pem=self.pem,
+                expected_signer="operator-lab", as_of="2026-11-09"
+            )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.stat().st_mode & 0o777, 0o644)
+
+
+    @unittest.skipUnless(hasattr(__import__("os"), "getuid"), "POSIX ownership checks required")
+    def test_locked_accept_rejects_foreign_owned_sidecar_without_state_creation(self):
+        """A private lock owned by another user must not serialise trusted state."""
+        import os
+        from unittest.mock import patch
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("Secure no-follow locks required")
+        lock = Path(str(self.state) + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        before = lock.read_bytes()
+        with patch("ogde.kev_revision_locked.os.getuid", return_value=lock.stat().st_uid + 1):
+            with self.assertRaisesRegex(SecurityError, "owned by the current user"):
+                accept_kev_attestation_locked(
+                    self.snapshot, self.signed(),
+                    state_path=self.state, trusted_public_pem=self.pem,
+                    expected_signer="operator-lab", as_of="2026-11-09"
+                )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.read_bytes(), before)
+
+
+
+    @unittest.skipUnless(hasattr(__import__("os"), "O_NOFOLLOW"), "POSIX secure locks required")
+    def test_locked_accept_rejects_sidecar_replacement_after_acquiring_lock(self):
+        """A swapped pathname must not turn a stale inode lock into authority."""
+        import os
+        from unittest.mock import patch
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix":
+            self.skipTest("POSIX advisory locks required")
+        lock = Path(str(self.state) + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        original_stat = os.stat
+
+        def swapped_stat(path, *args, **kwargs):
+            result = original_stat(path, *args, **kwargs)
+            if str(path) == str(lock) and kwargs.get("follow_symlinks") is False:
+                class Replaced:
+                    st_mode = result.st_mode
+                    st_dev = result.st_dev
+                    st_ino = result.st_ino + 1
+                    st_nlink = result.st_nlink
+                    st_uid = result.st_uid
+                return Replaced()
+            return result
+
+        with patch("ogde.kev_revision_locked.os.stat", side_effect=swapped_stat):
+            with self.assertRaisesRegex(SecurityError, "changed during acquisition"):
+                accept_kev_attestation_locked(
+                    self.snapshot, self.signed(),
+                    state_path=self.state, trusted_public_pem=self.pem,
+                    expected_signer="operator-lab", as_of="2026-11-09"
+                )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.read_bytes(), b"")
+
+
 if __name__ == "__main__":
     unittest.main()
