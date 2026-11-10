@@ -365,5 +365,42 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
 
 
 
+    @unittest.skipUnless(hasattr(__import__("os"), "O_NOFOLLOW"), "POSIX secure locks required")
+    def test_locked_accept_rejects_sidecar_replacement_after_acquiring_lock(self):
+        """A swapped pathname must not turn a stale inode lock into authority."""
+        import os
+        from unittest.mock import patch
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix":
+            self.skipTest("POSIX advisory locks required")
+        lock = Path(str(self.state) + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        original_stat = os.stat
+
+        def swapped_stat(path, *args, **kwargs):
+            result = original_stat(path, *args, **kwargs)
+            if str(path) == str(lock) and kwargs.get("follow_symlinks") is False:
+                class Replaced:
+                    st_mode = result.st_mode
+                    st_dev = result.st_dev
+                    st_ino = result.st_ino + 1
+                    st_nlink = result.st_nlink
+                    st_uid = result.st_uid
+                return Replaced()
+            return result
+
+        with patch("ogde.kev_revision_locked.os.stat", side_effect=swapped_stat):
+            with self.assertRaisesRegex(SecurityError, "changed during acquisition"):
+                accept_kev_attestation_locked(
+                    self.snapshot, self.signed(),
+                    state_path=self.state, trusted_public_pem=self.pem,
+                    expected_signer="operator-lab", as_of="2026-11-09"
+                )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.read_bytes(), b"")
+
+
 if __name__ == "__main__":
     unittest.main()
