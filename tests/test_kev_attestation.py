@@ -38,6 +38,36 @@ class AttestationTests(unittest.TestCase):
         self.assertFalse(result["publisher_authenticated"])
         self.assertEqual(result["revision"], 2)
 
+    def test_operator_signature_never_authenticates_cisa(self):
+        """A valid operator signature must not be promoted to publisher provenance."""
+        result = self.verify()
+        self.assertIs(result["publisher_authenticated"], False)
+        self.assertEqual(result["decision"], "human-review")
+        self.assertIn("not CISA as publisher", " ".join(result["limitations"]))
+
+    def test_forged_publisher_claim_in_statement_rejected(self):
+        """Signed but unsupported provenance fields must fail schema validation."""
+        self.statement["publisher_authenticated"] = True
+        with self.assertRaisesRegex(SecurityError, "Invalid attestation statement"):
+            self.verify()
+
+    def test_forged_publisher_claim_in_envelope_rejected(self):
+        envelope = self.envelope()
+        envelope["publisher_authenticated"] = True
+        with self.assertRaisesRegex(SecurityError, "Invalid attestation envelope"):
+            self.verify(envelope)
+
+    def test_signature_from_other_operator_cannot_impersonate_pinned_signer(self):
+        other_key = Ed25519PrivateKey.generate()
+        other_pem = other_key.public_key().public_bytes(
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        envelope = self.envelope()
+        envelope["signature"]["key_id"] = public_key_id(other_key.public_key())
+        envelope["signature"]["value"] = base64.b64encode(
+            other_key.sign(canonical(self.statement))).decode("ascii")
+        with self.assertRaises(SecurityError):
+            self.verify(envelope, trusted_public_pem=other_pem)
+
     def test_tampered_snapshot_rejected(self):
         self.snapshot["vulnerabilities"][0]["cveID"] = "CVE-2026-99999"
         with self.assertRaises(SecurityError):
