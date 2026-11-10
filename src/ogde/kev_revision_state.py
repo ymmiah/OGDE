@@ -44,6 +44,8 @@ def load_kev_revision_state(path: str | Path) -> dict:
     info = target.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_nlink != 1:
         raise SecurityError("Revision state must be a private, singly linked regular file")
+    if hasattr(os, "getuid") and info.st_uid != os.getuid():
+        raise SecurityError("Revision state must be owned by the current user")
     return _validate(load_json_file(target))
 
 
