@@ -295,5 +295,50 @@ class M3ProvenanceNegativeGateTests(unittest.TestCase):
         self.assertEqual(second_link.read_bytes(), before)
 
 
+    def test_locked_accept_rejects_hardlinked_sidecar_without_state_creation(self):
+        """A sidecar alias must not be accepted as an exclusive writer lock."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        lock = Path(str(self.state) + ".lock")
+        alias = Path(self.directory.name) / "lock-alias"
+        lock.write_bytes(b"")
+        lock.chmod(0o600)
+        try:
+            os.link(lock, alias)
+        except (OSError, NotImplementedError):
+            self.skipTest("Hard links unavailable")
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(),
+                state_path=self.state, trusted_public_pem=self.pem,
+                expected_signer="operator-lab", as_of="2026-11-09"
+            )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.stat().st_nlink, 2)
+        self.assertEqual(lock.read_bytes(), b"")
+
+    def test_locked_accept_rejects_insecure_sidecar_without_state_creation(self):
+        """A pre-existing world-readable lock cannot guard revision acceptance."""
+        import os
+        from ogde.kev_revision_locked import accept_kev_attestation_locked
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            self.skipTest("POSIX secure locks required")
+        lock = Path(str(self.state) + ".lock")
+        lock.write_bytes(b"")
+        lock.chmod(0o644)
+        with self.assertRaises(SecurityError):
+            accept_kev_attestation_locked(
+                self.snapshot, self.signed(),
+                state_path=self.state, trusted_public_pem=self.pem,
+                expected_signer="operator-lab", as_of="2026-11-09"
+            )
+        self.assertFalse(self.state.exists())
+        self.assertEqual(lock.stat().st_mode & 0o777, 0o644)
+
+
 if __name__ == "__main__":
     unittest.main()
