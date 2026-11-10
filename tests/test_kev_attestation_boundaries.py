@@ -66,7 +66,7 @@ class KevAttestationBoundaryTests(unittest.TestCase):
             self.verify(signature_override={"value": "not-base64!"})
 
     def test_rejects_short_signature(self):
-        with self.assertRaisesRegex(SecurityError, "Invalid signature length"):
+        with self.assertRaisesRegex(SecurityError, "KEV attestation signature verification failed"):
             self.verify(signature_override={"value": base64.b64encode(b"short").decode("ascii")})
 
 
