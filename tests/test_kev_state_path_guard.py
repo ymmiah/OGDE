@@ -46,5 +46,30 @@ class StatePathGuardTests(unittest.TestCase):
             validate_kev_state_path(self.root / 'missing' / 'state.json')
 
 
+    def test_existing_fifo_target_rejected_before_read(self):
+        """Never attempt to read a FIFO as revision state (which could block)."""
+        import os
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("FIFO support required")
+        target = self.root / 'real' / 'state.json'
+        os.mkfifo(target, 0o600)
+        from ogde.kev_revision_state import load_kev_revision_state
+        with self.assertRaises(SecurityError):
+            load_kev_revision_state(target)
+        self.assertTrue(target.exists())
+
+    def test_world_readable_state_rejected_without_modification(self):
+        """Reject exposed revision state rather than silently repairing it."""
+        import os
+        target = self.root / 'real' / 'state.json'
+        target.write_text('{"not":"trusted"}')
+        os.chmod(target, 0o644)
+        before = target.read_bytes()
+        from ogde.kev_revision_state import load_kev_revision_state
+        with self.assertRaises(SecurityError):
+            load_kev_revision_state(target)
+        self.assertEqual(target.read_bytes(), before)
+
+
 if __name__ == '__main__':
     unittest.main()
