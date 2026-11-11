@@ -90,6 +90,19 @@ class CheckpointTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             read_checkpoint(self.path, expected_digest=digest)
 
+    def test_read_rejects_group_writable_parent(self):
+        """A group member must not be able to swap checkpoint entries."""
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions only")
+        digest = write_checkpoint(self.path, 1)
+        parent = self.path.parent
+        parent.chmod(0o770)
+        self.addCleanup(parent.chmod, 0o700)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=digest)
+        parent.chmod(0o700)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
     def test_read_rejects_symlinked_parent(self):
         real = Path(self.tmp.name) / "real"
         real.mkdir(mode=0o700)
