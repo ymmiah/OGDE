@@ -102,6 +102,17 @@ def write_checkpoint(path: str | Path, revision: int, *,
         raise SecurityError("Refusing to overwrite checkpoint; archive and verify previous state first")
     if not p.parent.is_dir() or p.parent.is_symlink():
         raise SecurityError("Checkpoint directory missing or unsafe")
+    # A checkpoint cannot be reliably owned by a single writer when other
+    # local users can replace its directory entries. The external digest
+    # remains mandatory even when this local directory check passes.
+    try:
+        directory = p.parent.stat()
+    except OSError as exc:
+        raise SecurityError("Checkpoint directory missing or unsafe") from exc
+    if os.name == "posix" and (
+        directory.st_uid != os.geteuid() or directory.st_mode & 0o022
+    ):
+        raise SecurityError("Checkpoint directory must be owner-controlled")
     fd, tmp = tempfile.mkstemp(prefix=".ogde-checkpoint-", dir=p.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
