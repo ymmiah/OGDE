@@ -93,5 +93,34 @@ class CheckpointTests(unittest.TestCase):
             read_checkpoint(self.path, expected_digest=checkpoint_digest(1))
 
 
+    def test_link_failure_cleans_temporary_file(self):
+        """Interrupted publication must leave no misleading checkpoint."""
+        from unittest.mock import patch
+
+        with patch("ogde.m3_checkpoint.os.link", side_effect=OSError("simulated link failure")):
+            with self.assertRaises(OSError):
+                write_checkpoint(self.path, 4)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
+
+    def test_concurrent_destination_collision_preserves_existing_checkpoint(self):
+        """Exclusive link failure must not overwrite another writer's state."""
+        from unittest.mock import patch
+
+        original_link = os.link
+
+        def competing_writer(source, destination):
+            # Simulate a competing writer publishing first.
+            existing = Path(destination)
+            existing.write_bytes(b"another writer's state")
+            return original_link(source, destination)
+
+        with patch("ogde.m3_checkpoint.os.link", side_effect=competing_writer):
+            with self.assertRaises(FileExistsError):
+                write_checkpoint(self.path, 4)
+        self.assertEqual(self.path.read_bytes(), b"another writer's state")
+        self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
+
+
 if __name__ == "__main__":
     unittest.main()
