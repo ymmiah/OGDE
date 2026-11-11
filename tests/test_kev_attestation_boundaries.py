@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import unittest
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -51,6 +52,16 @@ class KevAttestationBoundaryTests(unittest.TestCase):
         result = self.verify(as_of="2026-11-10")
         self.assertTrue(result["signature_verified"])
         self.assertIs(result["publisher_authenticated"], False)
+
+    def test_verified_operator_attestation_uses_nonpromoting_provenance_boundary(self):
+        from ogde.publisher_provenance import assess_publisher_provenance
+        with patch("ogde.kev_attestation.assess_publisher_provenance",
+                   wraps=assess_publisher_provenance) as assessment:
+            result = self.verify()
+        assessment.assert_called_once_with(self.statement)
+        self.assertTrue(result["signature_verified"])
+        self.assertIs(result["publisher_authenticated"], False)
+        self.assertEqual(result["decision"], "human-review")
 
     def test_rejects_noncanonical_statement_date_even_when_signed(self):
         self.statement["valid_from"] = "2026-10-5"

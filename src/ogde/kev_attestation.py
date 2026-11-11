@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from .core import SecurityError, canonical, public_key_id
 from .kev_ingest import ingest_kev_snapshot
+from .publisher_provenance import assess_publisher_provenance
 
 _SHA = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -63,6 +64,9 @@ def verify_kev_attestation(snapshot: object, attestation: object, *,
     except (ValueError, TypeError, InvalidSignature, KeyError) as exc:
         raise SecurityError("KEV attestation signature verification failed") from exc
     receipt = ingest_kev_snapshot(snapshot, expected_sha256=digest)
+    # A verified operator signature is not independent publisher provenance.
+    # Route the result through the single fail-closed assessment boundary.
+    provenance = assess_publisher_provenance(statement)
     return {
         "kind": "ogde-kev-attestation-verification",
         "snapshot_digest_sha256": receipt["digest_sha256"],
@@ -70,8 +74,8 @@ def verify_kev_attestation(snapshot: object, attestation: object, *,
         "signer_key_id": public_key_id(public),
         "revision": revision,
         "signature_verified": True,
-        "publisher_authenticated": False,
-        "decision": "human-review",
+        "publisher_authenticated": provenance.publisher_authenticated,
+        "decision": provenance.decision,
         "limitations": [
             "This verifies the independently pinned operator signer, not CISA as publisher.",
             "Signed metadata does not establish the truth, completeness or applicability of KEV entries.",
