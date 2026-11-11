@@ -65,10 +65,28 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
         flags |= os.O_NOFOLLOW
     if hasattr(os, "O_NONBLOCK"):
         flags |= os.O_NONBLOCK
+    # On POSIX, bind the final open to a verified directory descriptor.
+    # This prevents a parent path replacement between validation and opening
+    # the checkpoint from silently redirecting the final file lookup.
+    parent_fd = -1
     try:
-        fd = os.open(p, flags)
+        if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+            parent_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            opened_parent = os.fstat(parent_fd)
+            if (not stat.S_ISDIR(opened_parent.st_mode)
+                    or opened_parent.st_dev != parent.st_dev
+                    or opened_parent.st_ino != parent.st_ino
+                    or opened_parent.st_uid != os.geteuid()
+                    or opened_parent.st_mode & 0o022):
+                raise SecurityError("Checkpoint directory changed or unsafe")
+            fd = os.open(p.name, flags, dir_fd=parent_fd)
+        else:
+            fd = os.open(p, flags)
     except OSError as exc:
         raise SecurityError("Checkpoint missing or unsafe") from exc
+    finally:
+        if parent_fd >= 0:
+            os.close(parent_fd)
     try:
         # fstat before fdopen: Python rejects directory descriptors during
         # fdopen(), and all unsafe inode types must fail as SecurityError.
