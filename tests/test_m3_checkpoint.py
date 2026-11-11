@@ -151,6 +151,27 @@ class CheckpointTests(unittest.TestCase):
                 with self.assertRaises(SecurityError):
                     read_checkpoint(self.path, expected_digest=invalid)
 
+    def test_shared_writable_parent_rejected(self):
+        """A second local user must not control checkpoint directory entries."""
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions only")
+        parent = self.path.parent
+        parent.chmod(0o777)
+        self.addCleanup(parent.chmod, 0o700)
+        with self.assertRaises(SecurityError):
+            write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+
+    def test_group_writable_parent_rejected(self):
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions only")
+        parent = self.path.parent
+        parent.chmod(0o770)
+        self.addCleanup(parent.chmod, 0o700)
+        with self.assertRaises(SecurityError):
+            write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+
     def test_directory_fsync_failure_requires_external_reconciliation(self):
         """A post-publication durability error must not be mistaken for success.
 
