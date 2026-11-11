@@ -23,8 +23,7 @@ def _encode(revision: int) -> bytes:
     if type(revision) is not int or not 1 <= revision <= _MAX_REVISION:
         raise SecurityError("Invalid checkpoint revision")
     return (json.dumps({"schema_version": 1, "revision": revision},
-                       sort_keys=True, separators=(",", ":")) + "
-").encode("ascii")
+                       sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
 
 
 def checkpoint_digest(revision: int) -> str:
