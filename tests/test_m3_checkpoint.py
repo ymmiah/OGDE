@@ -81,6 +81,60 @@ class CheckpointTests(unittest.TestCase):
                 read_checkpoint(self.path, expected_digest=digest)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
 
+    def test_parent_descriptor_inode_mismatch_rejected(self):
+        """A parent replacement between lstat and open must fail closed."""
+        if os.name != "posix" or not all(hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW")):
+            self.skipTest("POSIX descriptor-relative directory checks required")
+        import stat
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        digest = write_checkpoint(self.path, 1)
+        real_fstat = os.fstat
+
+        def replaced_parent(fd):
+            metadata = real_fstat(fd)
+            if stat.S_ISDIR(metadata.st_mode):
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode, st_dev=metadata.st_dev,
+                    st_ino=metadata.st_ino + 1, st_uid=metadata.st_uid
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.os.fstat", side_effect=replaced_parent):
+            with self.assertRaises(SecurityError):
+                read_checkpoint(self.path, expected_digest=digest)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
+    def test_parent_descriptor_permissions_mismatch_rejected(self):
+        """Reject a parent made group-writable after the initial path check."""
+        if os.name != "posix" or not all(
+            hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW")
+        ):
+            self.skipTest("POSIX descriptor-relative directory checks required")
+        import stat
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        digest = write_checkpoint(self.path, 1)
+        real_fstat = os.fstat
+
+        def widened_parent(fd):
+            metadata = real_fstat(fd)
+            if stat.S_ISDIR(metadata.st_mode):
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode | 0o020,
+                    st_dev=metadata.st_dev,
+                    st_ino=metadata.st_ino,
+                    st_uid=metadata.st_uid,
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.os.fstat", side_effect=widened_parent):
+            with self.assertRaises(SecurityError):
+                read_checkpoint(self.path, expected_digest=digest)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
     def test_read_rejects_foreign_owned_parent(self):
         """A valid external digest cannot authorise a foreign-owned directory."""
         if os.name != "posix":
