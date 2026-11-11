@@ -50,9 +50,13 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     except OSError as exc:
         raise SecurityError("Checkpoint missing or unsafe") from exc
     try:
+        # fstat before fdopen: Python rejects directory descriptors during
+        # fdopen(), and all unsafe inode types must fail as SecurityError.
+        metadata = os.fstat(fd)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise SecurityError("Checkpoint missing or unsafe")
         with os.fdopen(fd, "rb") as handle:
             fd = -1
-            metadata = os.fstat(handle.fileno())
             if not stat.S_ISREG(metadata.st_mode):
                 raise SecurityError("Checkpoint missing or unsafe")
             if os.name == "posix" and metadata.st_mode & 0o077:
