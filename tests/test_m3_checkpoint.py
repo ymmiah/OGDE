@@ -73,5 +73,25 @@ class CheckpointTests(unittest.TestCase):
                     write_checkpoint(self.path, invalid)
 
 
+    def test_hardlinked_checkpoint_rejected(self):
+        if os.name != "posix":
+            self.skipTest("POSIX hard links only")
+        digest = write_checkpoint(self.path, 1)
+        alias = Path(self.tmp.name) / "checkpoint-alias.json"
+        os.link(self.path, alias)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=digest)
+
+    def test_directory_is_not_checkpoint(self):
+        directory = Path(self.tmp.name) / "directory"
+        directory.mkdir(mode=0o700)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(directory, expected_digest=checkpoint_digest(1))
+
+    def test_missing_checkpoint_rejected(self):
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=checkpoint_digest(1))
+
+
 if __name__ == "__main__":
     unittest.main()
