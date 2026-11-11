@@ -38,6 +38,18 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     ):
         raise SecurityError("Independent checkpoint digest required")
     p = Path(path)
+    # The independently supplied digest protects contents, but the containing
+    # directory must also be owner-controlled to prevent local path swaps.
+    try:
+        parent = p.parent.lstat()
+    except OSError as exc:
+        raise SecurityError("Checkpoint directory missing or unsafe") from exc
+    if not stat.S_ISDIR(parent.st_mode) or (
+        os.name == "posix" and (
+            parent.st_uid != os.geteuid() or parent.st_mode & 0o022
+        )
+    ):
+        raise SecurityError("Checkpoint directory must be owner-controlled")
     # Open the inode first: path-based checks followed by open() permit a
     # symlink swap between validation and reading.
     flags = os.O_RDONLY
