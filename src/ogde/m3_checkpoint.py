@@ -136,6 +136,14 @@ def write_checkpoint(path: str | Path, revision: int, *,
         directory.st_uid != os.geteuid() or directory.st_mode & 0o022
     ):
         raise SecurityError("Checkpoint directory must be owner-controlled")
+    # Reject redirection through an ancestor, not just the immediate parent.
+    # This remains path-based; descriptor-relative traversal is a future gate.
+    for ancestor in p.parent.parents:
+        try:
+            if stat.S_ISLNK(ancestor.lstat().st_mode):
+                raise SecurityError("Checkpoint ancestor symlink is unsafe")
+        except OSError as exc:
+            raise SecurityError("Checkpoint ancestor missing or unsafe") from exc
     fd, tmp = tempfile.mkstemp(prefix=".ogde-checkpoint-", dir=p.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
