@@ -68,7 +68,7 @@ def write_checkpoint(path: str | Path, revision: int, *,
     or independently protect the returned digest. Never use it as an
     automatic trust-promotion mechanism.
     """
-    if type(previous_revision) is not int or not 0 <= previous_revision < revision:
+    if type(revision) is not int or type(previous_revision) is not int or not 0 <= previous_revision < revision:
         raise SecurityError("Checkpoint rollback or invalid previous revision")
     raw = _encode(revision)
     p = Path(path)
