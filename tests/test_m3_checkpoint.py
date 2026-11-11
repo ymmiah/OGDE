@@ -122,6 +122,35 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
 
 
+    def test_oversized_checkpoint_rejected_before_read(self):
+        """Bound untrusted file size even with a matching external digest."""
+        import hashlib
+
+        payload = b"x" * 4097
+        self.path.write_bytes(payload)
+        if os.name == "posix":
+            self.path.chmod(0o600)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(
+                self.path, expected_digest=hashlib.sha256(payload).hexdigest()
+            )
+
+    def test_non_regular_fifo_rejected_without_blocking(self):
+        """An attacker-controlled FIFO must not hang the local verifier."""
+        if not hasattr(os, "mkfifo") or not hasattr(os, "O_NONBLOCK"):
+            self.skipTest("Non-blocking FIFO support required")
+        os.mkfifo(self.path, 0o600)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=checkpoint_digest(1))
+
+    def test_invalid_external_digest_rejected(self):
+        """Malformed or absent external evidence must fail closed."""
+        digest = write_checkpoint(self.path, 1)
+        for invalid in ("", digest.upper(), "g" * 64, None, 123):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(SecurityError):
+                    read_checkpoint(self.path, expected_digest=invalid)
+
     def test_directory_fsync_failure_requires_external_reconciliation(self):
         """A post-publication durability error must not be mistaken for success.
 
