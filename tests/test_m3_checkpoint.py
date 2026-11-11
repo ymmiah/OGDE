@@ -58,6 +58,29 @@ class CheckpointTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             read_checkpoint(self.path, expected_digest=digest)
 
+    def test_foreign_owned_checkpoint_rejected(self):
+        """An otherwise valid digest must not bypass inode ownership checks."""
+        if os.name != "posix":
+            self.skipTest("POSIX ownership only")
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        digest = write_checkpoint(self.path, 1)
+        real_fstat = os.fstat
+
+        def foreign_owner(fd):
+            metadata = os.stat_result(real_fstat(fd))
+            fields = ("st_mode", "st_ino", "st_dev", "st_nlink", "st_uid",
+                      "st_gid", "st_size", "st_atime", "st_mtime", "st_ctime")
+            values = {field: getattr(metadata, field) for field in fields}
+            values["st_uid"] = os.geteuid() + 1
+            return SimpleNamespace(**values)
+
+        with patch("ogde.m3_checkpoint.os.fstat", side_effect=foreign_owner):
+            with self.assertRaises(SecurityError):
+                read_checkpoint(self.path, expected_digest=digest)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
     def test_world_readable_rejected(self):
         if os.name != "posix":
             self.skipTest("POSIX permissions only")
