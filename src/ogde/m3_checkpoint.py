@@ -50,7 +50,7 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
         )
     ):
         raise SecurityError("Checkpoint directory must be owner-controlled")
-    # Open the inode first: path-based checks followed by open() permit a
+    # An intermediate symlink can redirect the path even when its immediate\n    # parent is a genuine owner-controlled directory. Reject such aliases.\n    for ancestor in p.parent.parents:\n        try:\n            if stat.S_ISLNK(ancestor.lstat().st_mode):\n                raise SecurityError("Checkpoint ancestor symlink is unsafe")\n        except OSError as exc:\n            raise SecurityError("Checkpoint ancestor missing or unsafe") from exc\n    # Open the inode first: path-based checks followed by open() permit a
     # symlink swap between validation and reading.
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
