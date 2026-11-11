@@ -100,6 +100,20 @@ class CheckpointTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             read_checkpoint(alias / "checkpoint.json", expected_digest=digest)
 
+    def test_read_rejects_intermediate_symlink_ancestor(self):
+        real = Path(self.tmp.name) / "real"
+        nested = real / "nested"
+        nested.mkdir(parents=True, mode=0o700)
+        original = nested / "checkpoint.json"
+        digest = write_checkpoint(original, 1)
+        alias = Path(self.tmp.name) / "alias"
+        try:
+            alias.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Directory symlinks unavailable")
+        with self.assertRaises(SecurityError):
+            read_checkpoint(alias / "nested" / "checkpoint.json", expected_digest=digest)
+
     def test_world_readable_rejected(self):
         if os.name != "posix":
             self.skipTest("POSIX permissions only")
