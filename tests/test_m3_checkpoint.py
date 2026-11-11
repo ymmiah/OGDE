@@ -81,6 +81,25 @@ class CheckpointTests(unittest.TestCase):
                 read_checkpoint(self.path, expected_digest=digest)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
 
+    def test_read_rejects_world_writable_parent(self):
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions only")
+        digest = write_checkpoint(self.path, 1)
+        self.path.parent.chmod(0o777)
+        self.addCleanup(self.path.parent.chmod, 0o700)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=digest)
+
+    def test_read_rejects_symlinked_parent(self):
+        real = Path(self.tmp.name) / "real"
+        real.mkdir(mode=0o700)
+        original = real / "checkpoint.json"
+        digest = write_checkpoint(original, 1)
+        alias = Path(self.tmp.name) / "alias"
+        alias.symlink_to(real, target_is_directory=True)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(alias / "checkpoint.json", expected_digest=digest)
+
     def test_world_readable_rejected(self):
         if os.name != "posix":
             self.skipTest("POSIX permissions only")
