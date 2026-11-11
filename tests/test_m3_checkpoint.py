@@ -122,5 +122,36 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
 
 
+    def test_directory_fsync_failure_requires_external_reconciliation(self):
+        """A post-publication durability error must not be mistaken for success.
+
+        The checkpoint may already exist when the directory fsync fails.
+        A caller must reconcile it with independently protected state;
+        the writer must not delete a possibly published checkpoint.
+        """
+        if not hasattr(os, "O_DIRECTORY"):
+            self.skipTest("Directory fsync is not supported")
+        from unittest.mock import patch
+
+        real_fsync = os.fsync
+        calls = 0
+
+        def fail_directory_fsync(fd):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise OSError("simulated directory durability failure")
+            return real_fsync(fd)
+
+        with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_directory_fsync):
+            with self.assertRaises(OSError):
+                write_checkpoint(self.path, 5)
+        self.assertEqual(calls, 2)
+        self.assertTrue(self.path.exists())
+        self.assertEqual(
+            read_checkpoint(self.path, expected_digest=checkpoint_digest(5)), 5
+        )
+        self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
+
 if __name__ == "__main__":
     unittest.main()
