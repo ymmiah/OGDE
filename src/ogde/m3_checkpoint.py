@@ -55,6 +55,9 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
         metadata = os.fstat(fd)
         if not stat.S_ISREG(metadata.st_mode):
             raise SecurityError("Checkpoint missing or unsafe")
+        # The checkpoint inode must belong to the verifying local user.
+        if os.name == "posix" and metadata.st_uid != os.geteuid():
+            raise SecurityError("Checkpoint owner is not the current user")
         with os.fdopen(fd, "rb") as handle:
             fd = -1
             if not stat.S_ISREG(metadata.st_mode):
