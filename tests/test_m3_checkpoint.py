@@ -81,6 +81,92 @@ class CheckpointTests(unittest.TestCase):
                 read_checkpoint(self.path, expected_digest=digest)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
 
+    def test_read_rejects_foreign_owned_parent(self):
+        """A valid external digest cannot authorise a foreign-owned directory."""
+        if os.name != "posix":
+            self.skipTest("POSIX directory ownership only")
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        digest = write_checkpoint(self.path, 1)
+        original_lstat = Path.lstat
+
+        def foreign_parent(path, *args, **kwargs):
+            metadata = original_lstat(path, *args, **kwargs)
+            if Path(path) == self.path.parent:
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode, st_uid=os.geteuid() + 1
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.Path.lstat", autospec=True,
+                   side_effect=foreign_parent):
+            with self.assertRaises(SecurityError):
+                read_checkpoint(self.path, expected_digest=digest)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
+    def test_read_rejects_world_writable_parent(self):
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions only")
+        digest = write_checkpoint(self.path, 1)
+        self.path.parent.chmod(0o777)
+        self.addCleanup(self.path.parent.chmod, 0o700)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=digest)
+
+    def test_read_rejects_group_writable_parent(self):
+        """A group member must not be able to swap checkpoint entries."""
+        if os.name != "posix":
+            self.skipTest("POSIX directory permissions only")
+        digest = write_checkpoint(self.path, 1)
+        parent = self.path.parent
+        parent.chmod(0o770)
+        self.addCleanup(parent.chmod, 0o700)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.path, expected_digest=digest)
+        parent.chmod(0o700)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
+    def test_read_rejects_symlinked_parent(self):
+        real = Path(self.tmp.name) / "real"
+        real.mkdir(mode=0o700)
+        original = real / "checkpoint.json"
+        digest = write_checkpoint(original, 1)
+        alias = Path(self.tmp.name) / "alias"
+        alias.symlink_to(real, target_is_directory=True)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(alias / "checkpoint.json", expected_digest=digest)
+
+    def test_read_rejects_intermediate_symlink_ancestor(self):
+        real = Path(self.tmp.name) / "real"
+        nested = real / "nested"
+        nested.mkdir(parents=True, mode=0o700)
+        original = nested / "checkpoint.json"
+        digest = write_checkpoint(original, 1)
+        alias = Path(self.tmp.name) / "alias"
+        try:
+            alias.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Directory symlinks unavailable")
+        with self.assertRaises(SecurityError):
+            read_checkpoint(alias / "nested" / "checkpoint.json", expected_digest=digest)
+
+    def test_write_rejects_intermediate_symlink_ancestor(self):
+        """Publication must not follow a redirected ancestor directory."""
+        real = Path(self.tmp.name) / "real"
+        nested = real / "nested"
+        nested.mkdir(parents=True, mode=0o700)
+        alias = Path(self.tmp.name) / "alias"
+        try:
+            alias.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Directory symlinks unavailable")
+        destination = alias / "nested" / "checkpoint.json"
+        with self.assertRaises(SecurityError):
+            write_checkpoint(destination, 1)
+        self.assertFalse((nested / "checkpoint.json").exists())
+        self.assertEqual(list(nested.glob(".ogde-checkpoint-*")), [])
+
     def test_world_readable_rejected(self):
         if os.name != "posix":
             self.skipTest("POSIX permissions only")
@@ -173,6 +259,32 @@ class CheckpointTests(unittest.TestCase):
             with self.subTest(invalid=invalid):
                 with self.assertRaises(SecurityError):
                     read_checkpoint(self.path, expected_digest=invalid)
+
+    def test_write_rejects_foreign_owned_parent(self):
+        """A foreign-owned directory must not receive a checkpoint."""
+        if os.name != "posix":
+            self.skipTest("POSIX directory ownership only")
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        real_stat = Path.stat
+
+        def foreign_parent(path, *args, **kwargs):
+            metadata = real_stat(path, *args, **kwargs)
+            if Path(path) == self.path.parent:
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode, st_uid=os.geteuid() + 1
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.Path.stat", autospec=True,
+                   side_effect=foreign_parent):
+            with self.assertRaises(SecurityError):
+                write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
 
     def test_shared_writable_parent_rejected(self):
         """A second local user must not control checkpoint directory entries."""

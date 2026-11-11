@@ -38,6 +38,26 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     ):
         raise SecurityError("Independent checkpoint digest required")
     p = Path(path)
+    # The independently supplied digest protects contents, but the containing
+    # directory must also be owner-controlled to prevent local path swaps.
+    try:
+        parent = p.parent.lstat()
+    except OSError as exc:
+        raise SecurityError("Checkpoint directory missing or unsafe") from exc
+    if not stat.S_ISDIR(parent.st_mode) or (
+        os.name == "posix" and (
+            parent.st_uid != os.geteuid() or parent.st_mode & 0o022
+        )
+    ):
+        raise SecurityError("Checkpoint directory must be owner-controlled")
+    # An intermediate symlink can redirect the path even when its immediate
+    # parent is a genuine owner-controlled directory. Reject such aliases.
+    for ancestor in p.parent.parents:
+        try:
+            if stat.S_ISLNK(ancestor.lstat().st_mode):
+                raise SecurityError("Checkpoint ancestor symlink is unsafe")
+        except OSError as exc:
+            raise SecurityError("Checkpoint ancestor missing or unsafe") from exc
     # Open the inode first: path-based checks followed by open() permit a
     # symlink swap between validation and reading.
     flags = os.O_RDONLY
@@ -116,6 +136,14 @@ def write_checkpoint(path: str | Path, revision: int, *,
         directory.st_uid != os.geteuid() or directory.st_mode & 0o022
     ):
         raise SecurityError("Checkpoint directory must be owner-controlled")
+    # Reject redirection through an ancestor, not just the immediate parent.
+    # This remains path-based; descriptor-relative traversal is a future gate.
+    for ancestor in p.parent.parents:
+        try:
+            if stat.S_ISLNK(ancestor.lstat().st_mode):
+                raise SecurityError("Checkpoint ancestor symlink is unsafe")
+        except OSError as exc:
+            raise SecurityError("Checkpoint ancestor missing or unsafe") from exc
     fd, tmp = tempfile.mkstemp(prefix=".ogde-checkpoint-", dir=p.parent)
     try:
         with os.fdopen(fd, "wb") as handle:
