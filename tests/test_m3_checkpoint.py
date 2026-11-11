@@ -260,6 +260,32 @@ class CheckpointTests(unittest.TestCase):
                 with self.assertRaises(SecurityError):
                     read_checkpoint(self.path, expected_digest=invalid)
 
+    def test_write_rejects_foreign_owned_parent(self):
+        """A foreign-owned directory must not receive a checkpoint."""
+        if os.name != "posix":
+            self.skipTest("POSIX directory ownership only")
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        real_stat = Path.stat
+
+        def foreign_parent(path, *args, **kwargs):
+            metadata = real_stat(path, *args, **kwargs)
+            if Path(path) == self.path.parent:
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode, st_uid=os.geteuid() + 1
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.Path.stat", autospec=True,
+                   side_effect=foreign_parent):
+            with self.assertRaises(SecurityError):
+                write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
     def test_shared_writable_parent_rejected(self):
         """A second local user must not control checkpoint directory entries."""
         if os.name != "posix":
