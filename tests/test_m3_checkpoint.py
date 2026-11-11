@@ -114,6 +114,22 @@ class CheckpointTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             read_checkpoint(alias / "nested" / "checkpoint.json", expected_digest=digest)
 
+    def test_write_rejects_intermediate_symlink_ancestor(self):
+        """Publication must not follow a redirected ancestor directory."""
+        real = Path(self.tmp.name) / "real"
+        nested = real / "nested"
+        nested.mkdir(parents=True, mode=0o700)
+        alias = Path(self.tmp.name) / "alias"
+        try:
+            alias.symlink_to(real, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("Directory symlinks unavailable")
+        destination = alias / "nested" / "checkpoint.json"
+        with self.assertRaises(SecurityError):
+            write_checkpoint(destination, 1)
+        self.assertFalse((nested / "checkpoint.json").exists())
+        self.assertEqual(list(nested.glob(".ogde-checkpoint-*")), [])
+
     def test_world_readable_rejected(self):
         if os.name != "posix":
             self.skipTest("POSIX permissions only")
