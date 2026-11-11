@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import tempfile
 from pathlib import Path
 
@@ -37,12 +38,33 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     ):
         raise SecurityError("Independent checkpoint digest required")
     p = Path(path)
-    if p.is_symlink() or not p.is_file():
-        raise SecurityError("Checkpoint missing or unsafe")
-    if os.name == "posix" and p.stat().st_mode & 0o077:
-        raise SecurityError("Checkpoint permissions are too broad")
-    with p.open("rb") as handle:
-        raw = handle.read(_MAX_STATE_BYTES + 1)
+    # Open the inode first: path-based checks followed by open() permit a
+    # symlink swap between validation and reading.
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    try:
+        fd = os.open(p, flags)
+    except OSError as exc:
+        raise SecurityError("Checkpoint missing or unsafe") from exc
+    try:
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            metadata = os.fstat(handle.fileno())
+            if not stat.S_ISREG(metadata.st_mode):
+                raise SecurityError("Checkpoint missing or unsafe")
+            if os.name == "posix" and metadata.st_mode & 0o077:
+                raise SecurityError("Checkpoint permissions are too broad")
+            if metadata.st_nlink != 1:
+                raise SecurityError("Checkpoint hard links are unsafe")
+            if metadata.st_size > _MAX_STATE_BYTES:
+                raise SecurityError("Checkpoint integrity mismatch")
+            raw = handle.read(_MAX_STATE_BYTES + 1)
+    finally:
+        if fd >= 0:
+            os.close(fd)
     if len(raw) > _MAX_STATE_BYTES or hashlib.sha256(raw).hexdigest() != expected_digest:
         raise SecurityError("Checkpoint integrity mismatch")
     try:
