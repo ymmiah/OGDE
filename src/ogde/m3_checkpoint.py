@@ -209,9 +209,11 @@ def write_checkpoint(path: str | Path, revision: int, *,
                     os.fsync(handle.fileno())
                 # The target must not be replaced or overwritten.
                 os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
-                os.fsync(parent_fd)
             finally:
+                # Remove staging state before syncing the directory so a
+                # successful return covers both publication and cleanup.
                 os.unlink(tmp_name, dir_fd=parent_fd)
+            os.fsync(parent_fd)
         finally:
             os.close(parent_fd)
     else:
