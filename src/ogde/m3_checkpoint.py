@@ -162,25 +162,9 @@ def write_checkpoint(path: str | Path, revision: int, *,
                 raise SecurityError("Checkpoint ancestor symlink is unsafe")
         except OSError as exc:
             raise SecurityError("Checkpoint ancestor missing or unsafe") from exc
-    # Verify the directory inode again through an open descriptor before
-    # creating any temporary state. This narrows (but does not eliminate) the
-    # path-replacement window; publication remains path-based until the
-    # complete dir_fd transaction is implemented and tested.
-    if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
-        try:
-            parent_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        except OSError as exc:
-            raise SecurityError("Checkpoint directory missing or unsafe") from exc
-        try:
-            opened = os.fstat(parent_fd)
-            if (not stat.S_ISDIR(opened.st_mode)
-                    or opened.st_dev != directory.st_dev
-                    or opened.st_ino != directory.st_ino
-                    or opened.st_uid != os.geteuid()
-                    or opened.st_mode & 0o022):
-                raise SecurityError("Checkpoint directory changed or unsafe")
-        finally:
-            os.close(parent_fd)
+    # Validate the parent through the same descriptor used for publication.
+    # A separate validation open would introduce an unnecessary path-reopen
+    # window before the descriptor-relative staging transaction.
     # POSIX publication uses a single verified parent descriptor for staging,
     # exclusive linking, cleanup and durability. Do not reopen the path.
     if os.name == "posix" and all(
