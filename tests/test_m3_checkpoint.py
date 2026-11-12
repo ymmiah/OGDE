@@ -272,11 +272,16 @@ class CheckpointTests(unittest.TestCase):
 
         original_link = os.link
 
-        def competing_writer(source, destination):
-            # Simulate a competing writer publishing first.
-            existing = Path(destination)
-            existing.write_bytes(b"another writer's state")
-            return original_link(source, destination)
+        def competing_writer(source, destination, **kwargs):
+            # Simulate a competing writer publishing first in the same dirfd.
+            if "dst_dir_fd" in kwargs:
+                fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                             0o600, dir_fd=kwargs["dst_dir_fd"])
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(b"another writer's state")
+            else:
+                Path(destination).write_bytes(b"another writer's state")
+            return original_link(source, destination, **kwargs)
 
         with patch("ogde.m3_checkpoint.os.link", side_effect=competing_writer):
             with self.assertRaises(FileExistsError):
