@@ -483,6 +483,41 @@ class CheckpointTests(unittest.TestCase):
         self.assertTrue(swapped)
         self.assertFalse((outside / "inner" / "checkpoint.json").exists())
 
+    def test_writer_rejects_real_directory_ancestor_swap(self):
+        """A replacement by a real directory must not redirect publication."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW") and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        root = Path(self.tmp.name)
+        original_parent = root / "outer" / "inner"
+        original_parent.mkdir(parents=True)
+        replacement = root / "replacement"
+        (replacement / "inner").mkdir(parents=True)
+        checkpoint = original_parent / "checkpoint.json"
+        real_open = os.open
+        swapped = False
+
+        def swap_during_walk(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if path == "outer" and kwargs.get("dir_fd") is not None and not swapped:
+                swapped = True
+                (root / "outer").rename(root / "old-outer")
+                replacement.rename(root / "outer")
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=swap_during_walk) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                with self.assertRaises(SecurityError):
+                    write_checkpoint(checkpoint, 1)
+        self.assertTrue(swapped)
+        for parent in (root / "outer" / "inner", root / "old-outer" / "inner"):
+            self.assertFalse((parent / "checkpoint.json").exists())
+            self.assertEqual(list(parent.glob(".ogde-checkpoint-*")), [])
+
     def test_reader_rejects_ancestor_symlink_swap_during_descriptor_walk(self):
         """A swapped ancestor must not redirect an independently verified read."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
