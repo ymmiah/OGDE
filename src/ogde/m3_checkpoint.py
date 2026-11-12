@@ -195,7 +195,7 @@ def write_checkpoint(path: str | Path, revision: int, *,
     ) and os.open in os.supports_dir_fd and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd:
         import secrets
         try:
-            parent_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            parent_fd = _open_parent_chain(p.parent)
         except OSError as exc:
             raise SecurityError("Checkpoint directory missing or unsafe") from exc
         try:
