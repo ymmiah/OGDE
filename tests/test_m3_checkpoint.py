@@ -369,6 +369,37 @@ class CheckpointTests(unittest.TestCase):
         digest = write_checkpoint(self.path, 1)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
 
+    def test_write_rejects_parent_descriptor_permission_change(self):
+        """A permission change after stat must fail before staging files."""
+        if os.name != "posix" or not all(
+            hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW")
+        ):
+            self.skipTest("POSIX descriptor checks required")
+        import stat
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        real_fstat = os.fstat
+
+        def widened_parent(fd):
+            metadata = real_fstat(fd)
+            if stat.S_ISDIR(metadata.st_mode):
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode | 0o020,
+                    st_dev=metadata.st_dev,
+                    st_ino=metadata.st_ino,
+                    st_uid=metadata.st_uid,
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.os.fstat", side_effect=widened_parent):
+            with self.assertRaises(SecurityError):
+                write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
     def test_shared_writable_parent_rejected(self):
         """A second local user must not control checkpoint directory entries."""
         if os.name != "posix":
