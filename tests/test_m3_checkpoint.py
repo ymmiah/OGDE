@@ -426,28 +426,62 @@ class CheckpointTests(unittest.TestCase):
             write_checkpoint(self.path, 1)
         self.assertFalse(self.path.exists())
 
-    def test_writer_uses_single_verified_parent_descriptor(self):
-        """Publication must not reopen its parent after descriptor validation."""
+    def test_writer_traverses_ancestors_by_descriptor(self):
+        """Intermediate path components must be opened relative to prior fds."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
-                and hasattr(os, "O_NOFOLLOW")
-                and os.open in os.supports_dir_fd
-                and os.link in os.supports_dir_fd
-                and os.unlink in os.supports_dir_fd):
+                and hasattr(os, "O_NOFOLLOW") and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd):
             self.skipTest("Descriptor-relative POSIX publication required")
         from unittest.mock import patch
 
         real_open = os.open
-        parent_opens = []
+        directory_opens = []
 
         def observe_open(path, flags, *args, **kwargs):
-            if Path(path) == self.path.parent and flags & os.O_DIRECTORY:
-                parent_opens.append(path)
+            if flags & os.O_DIRECTORY:
+                directory_opens.append((path, kwargs.get("dir_fd")))
             return real_open(path, flags, *args, **kwargs)
 
-        with patch("ogde.m3_checkpoint.os.open", side_effect=observe_open):
-            digest = write_checkpoint(self.path, 8)
-        self.assertEqual(len(parent_opens), 1)
+        with patch("ogde.m3_checkpoint.os.open", side_effect=observe_open) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                digest = write_checkpoint(self.path, 8)
+        self.assertGreaterEqual(len(directory_opens), 2)
+        self.assertIsNone(directory_opens[0][1])
+        self.assertTrue(all(fd is not None for _, fd in directory_opens[1:]))
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 8)
+
+    def test_ancestor_symlink_swap_rejected_during_descriptor_walk(self):
+        """A swapped intermediate component must fail before publication."""
+        if not (os.name == "posix" and hasattr(os, "O_NOFOLLOW")
+                and os.open in os.supports_dir_fd):
+            self.skipTest("POSIX descriptor traversal required")
+        from unittest.mock import patch
+        import stat
+
+        parent = Path(self.tmp.name) / "outer" / "inner"
+        parent.mkdir(parents=True)
+        checkpoint = parent / "checkpoint.json"
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        real_open = os.open
+        swapped = False
+
+        def swap_during_walk(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if path == "outer" and kwargs.get("dir_fd") is not None and not swapped:
+                swapped = True
+                (Path(self.tmp.name) / "outer").rename(Path(self.tmp.name) / "old-outer")
+                (Path(self.tmp.name) / "outer").symlink_to(outside, target_is_directory=True)
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=swap_during_walk) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                with self.assertRaises((SecurityError, OSError)):
+                    write_checkpoint(checkpoint, 1)
+        self.assertTrue(swapped)
+        self.assertFalse((outside / "inner" / "checkpoint.json").exists())
 
     def test_staging_file_is_exclusive_private_and_descriptor_relative(self):
         """Checkpoint staging must never use a path-based or shared file."""
