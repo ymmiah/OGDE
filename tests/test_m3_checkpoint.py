@@ -486,6 +486,37 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 9)
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
 
+    def test_directory_fsync_failure_requires_independent_recovery(self):
+        """Publication may exist even when directory durability is unconfirmed."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        import stat
+        from unittest.mock import patch
+
+        original_fsync = os.fsync
+
+        def fail_directory_sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError("simulated directory durability failure")
+            return original_fsync(fd)
+
+        with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_directory_sync):
+            with self.assertRaisesRegex(OSError, "directory durability failure"):
+                write_checkpoint(self.path, 12)
+
+        # A failed return is not evidence that the target is absent. The
+        # caller must inspect/reconcile using an independently retained digest.
+        self.assertTrue(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        self.assertEqual(
+            read_checkpoint(self.path, expected_digest=checkpoint_digest(12)), 12
+        )
+        with self.assertRaises(SecurityError):
+            write_checkpoint(self.path, 13, previous_revision=12)
+
     def test_directory_sync_follows_staging_cleanup(self):
         """Directory fsync must observe no leftover staging entry."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
