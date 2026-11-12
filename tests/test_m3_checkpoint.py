@@ -427,7 +427,7 @@ class CheckpointTests(unittest.TestCase):
         self.assertFalse(self.path.exists())
 
     def test_directory_sync_follows_staging_cleanup(self):
-        """Successful POSIX publication durably records removal of staging state."""
+        """Directory fsync must observe no leftover staging entry."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
                 and os.open in os.supports_dir_fd
                 and os.link in os.supports_dir_fd
@@ -436,23 +436,23 @@ class CheckpointTests(unittest.TestCase):
         from unittest.mock import patch
         import stat
 
-        real_unlink, real_fsync = os.unlink, os.fsync
-        events = []
+        real_fsync = os.fsync
+        directory_syncs = []
 
-        def tracked_unlink(path, *args, **kwargs):
-            if str(path).startswith(".ogde-checkpoint-"):
-                events.append("cleanup")
-            return real_unlink(path, *args, **kwargs)
-
-        def tracked_fsync(fd):
+        def inspect_directory_at_sync(fd):
             if stat.S_ISDIR(os.fstat(fd).st_mode):
-                events.append("directory-sync")
+                directory_syncs.append(True)
+                self.assertEqual(
+                    list(self.path.parent.glob(".ogde-checkpoint-*")), [],
+                    "Staging entry must be removed before directory fsync",
+                )
+                self.assertTrue(self.path.exists())
             return real_fsync(fd)
 
-        with (patch("ogde.m3_checkpoint.os.unlink", side_effect=tracked_unlink),
-              patch("ogde.m3_checkpoint.os.fsync", side_effect=tracked_fsync)):
+        with patch("ogde.m3_checkpoint.os.fsync",
+                   side_effect=inspect_directory_at_sync):
             digest = write_checkpoint(self.path, 7)
-        self.assertEqual(events, ["cleanup", "directory-sync"])
+        self.assertEqual(directory_syncs, [True])
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 7)
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
 
