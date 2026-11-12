@@ -449,6 +449,39 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(len(parent_opens), 1)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 8)
 
+    def test_staging_file_is_exclusive_private_and_descriptor_relative(self):
+        """Checkpoint staging must never use a path-based or shared file."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        real_open = os.open
+        staging_calls = []
+
+        def inspect_open(path, flags, *args, **kwargs):
+            if flags & os.O_CREAT:
+                staging_calls.append((path, flags, args, kwargs))
+                self.assertTrue(flags & os.O_EXCL)
+                self.assertTrue(flags & os.O_NOFOLLOW)
+                self.assertEqual(args[0] if args else None, 0o600)
+                parent_fd = kwargs.get("dir_fd")
+                self.assertIsInstance(parent_fd, int)
+                self.assertTrue(Path(path).name.startswith(".ogde-checkpoint-"))
+                self.assertEqual(Path(path).name, str(path))
+                self.assertEqual(os.fstat(parent_fd).st_ino,
+                                 self.path.parent.stat().st_ino)
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=inspect_open):
+            digest = write_checkpoint(self.path, 9)
+        self.assertEqual(len(staging_calls), 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 9)
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+
     def test_directory_sync_follows_staging_cleanup(self):
         """Directory fsync must observe no leftover staging entry."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
