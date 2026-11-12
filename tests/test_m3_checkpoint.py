@@ -426,6 +426,198 @@ class CheckpointTests(unittest.TestCase):
             write_checkpoint(self.path, 1)
         self.assertFalse(self.path.exists())
 
+    def test_writer_traverses_ancestors_by_descriptor(self):
+        """Intermediate path components must be opened relative to prior fds."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW") and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        real_open = os.open
+        directory_opens = []
+
+        def observe_open(path, flags, *args, **kwargs):
+            if flags & os.O_DIRECTORY:
+                directory_opens.append((path, kwargs.get("dir_fd")))
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=observe_open) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                digest = write_checkpoint(self.path, 8)
+        self.assertGreaterEqual(len(directory_opens), 2)
+        self.assertIsNone(directory_opens[0][1])
+        self.assertTrue(all(fd is not None for _, fd in directory_opens[1:]))
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 8)
+
+    def test_ancestor_symlink_swap_rejected_during_descriptor_walk(self):
+        """A swapped intermediate component must fail before publication."""
+        if not (os.name == "posix" and hasattr(os, "O_NOFOLLOW")
+                and os.open in os.supports_dir_fd):
+            self.skipTest("POSIX descriptor traversal required")
+        from unittest.mock import patch
+        import stat
+
+        parent = Path(self.tmp.name) / "outer" / "inner"
+        parent.mkdir(parents=True)
+        checkpoint = parent / "checkpoint.json"
+        outside = Path(self.tmp.name) / "outside"
+        outside.mkdir()
+        real_open = os.open
+        swapped = False
+
+        def swap_during_walk(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if path == "outer" and kwargs.get("dir_fd") is not None and not swapped:
+                swapped = True
+                (Path(self.tmp.name) / "outer").rename(Path(self.tmp.name) / "old-outer")
+                (Path(self.tmp.name) / "outer").symlink_to(outside, target_is_directory=True)
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=swap_during_walk) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                with self.assertRaises((SecurityError, OSError)):
+                    write_checkpoint(checkpoint, 1)
+        self.assertTrue(swapped)
+        self.assertFalse((outside / "inner" / "checkpoint.json").exists())
+
+    def test_writer_rejects_real_directory_ancestor_swap(self):
+        """A replacement by a real directory must not redirect publication."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW") and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        root = Path(self.tmp.name)
+        original_parent = root / "outer" / "inner"
+        original_parent.mkdir(parents=True)
+        replacement = root / "replacement"
+        (replacement / "inner").mkdir(parents=True)
+        checkpoint = original_parent / "checkpoint.json"
+        real_open = os.open
+        swapped = False
+
+        def swap_during_walk(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if path == "outer" and kwargs.get("dir_fd") is not None and not swapped:
+                swapped = True
+                (root / "outer").rename(root / "old-outer")
+                replacement.rename(root / "outer")
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=swap_during_walk) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                with self.assertRaises(SecurityError):
+                    write_checkpoint(checkpoint, 1)
+        self.assertTrue(swapped)
+        for parent in (root / "outer" / "inner", root / "old-outer" / "inner"):
+            self.assertFalse((parent / "checkpoint.json").exists())
+            self.assertEqual(list(parent.glob(".ogde-checkpoint-*")), [])
+
+    def test_reader_rejects_ancestor_symlink_swap_during_descriptor_walk(self):
+        """A swapped ancestor must not redirect an independently verified read."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW") and os.open in os.supports_dir_fd):
+            self.skipTest("POSIX descriptor traversal required")
+        from unittest.mock import patch
+
+        parent = Path(self.tmp.name) / "outer" / "inner"
+        parent.mkdir(parents=True)
+        checkpoint = parent / "checkpoint.json"
+        digest = write_checkpoint(checkpoint, 5)
+        outside = Path(self.tmp.name) / "outside"
+        (outside / "inner").mkdir(parents=True)
+        real_open = os.open
+        swapped = False
+
+        def swap_during_read(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if path == "outer" and kwargs.get("dir_fd") is not None and not swapped:
+                swapped = True
+                (Path(self.tmp.name) / "outer").rename(Path(self.tmp.name) / "old-outer")
+                (Path(self.tmp.name) / "outer").symlink_to(outside, target_is_directory=True)
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=swap_during_read):
+            with self.assertRaises(SecurityError):
+                read_checkpoint(checkpoint, expected_digest=digest)
+        self.assertTrue(swapped)
+        self.assertEqual(read_checkpoint(
+            Path(self.tmp.name) / "old-outer" / "inner" / "checkpoint.json",
+            expected_digest=digest), 5)
+
+    def test_staging_file_is_exclusive_private_and_descriptor_relative(self):
+        """Checkpoint staging must never use a path-based or shared file."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        real_open = os.open
+        staging_calls = []
+
+        def inspect_open(path, flags, *args, **kwargs):
+            if flags & os.O_CREAT:
+                staging_calls.append((path, flags, args, kwargs))
+                self.assertTrue(flags & os.O_EXCL)
+                self.assertTrue(flags & os.O_NOFOLLOW)
+                self.assertEqual(args[0] if args else None, 0o600)
+                parent_fd = kwargs.get("dir_fd")
+                self.assertIsInstance(parent_fd, int)
+                self.assertTrue(Path(path).name.startswith(".ogde-checkpoint-"))
+                self.assertEqual(Path(path).name, str(path))
+                self.assertEqual(os.fstat(parent_fd).st_ino,
+                                 self.path.parent.stat().st_ino)
+            return real_open(path, flags, *args, **kwargs)
+
+        # Mocking os.open changes its identity; preserve dir_fd registration
+        # for the instrumented callable so this tests the POSIX path.
+        with patch("ogde.m3_checkpoint.os.open", side_effect=inspect_open) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                digest = write_checkpoint(self.path, 9)
+        self.assertEqual(len(staging_calls), 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 9)
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+
+    def test_directory_fsync_failure_requires_independent_recovery(self):
+        """Publication may exist even when directory durability is unconfirmed."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        import stat
+        from unittest.mock import patch
+
+        original_fsync = os.fsync
+
+        def fail_directory_sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                raise OSError("simulated directory durability failure")
+            return original_fsync(fd)
+
+        with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_directory_sync):
+            with self.assertRaisesRegex(OSError, "directory durability failure"):
+                write_checkpoint(self.path, 12)
+
+        # A failed return is not evidence that the target is absent. The
+        # caller must inspect/reconcile using an independently retained digest.
+        self.assertTrue(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        self.assertEqual(
+            read_checkpoint(self.path, expected_digest=checkpoint_digest(12)), 12
+        )
+        with self.assertRaises(SecurityError):
+            write_checkpoint(self.path, 13, previous_revision=12)
+
     def test_directory_sync_follows_staging_cleanup(self):
         """Directory fsync must observe no leftover staging entry."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
@@ -455,6 +647,76 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(directory_syncs, [True])
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 7)
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+
+    def test_staging_write_failure_does_not_publish(self):
+        """A short/failed staging write must never publish a checkpoint."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        original_fdopen = os.fdopen
+
+        class FailingWriter:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def __enter__(self):
+                self.handle.__enter__()
+                return self
+
+            def __exit__(self, *args):
+                return self.handle.__exit__(*args)
+
+            def write(self, data):
+                self.handle.write(data[:3])
+                raise OSError("simulated partial staging write")
+
+            def __getattr__(self, name):
+                return getattr(self.handle, name)
+
+        def fail_write(fd, mode, *args, **kwargs):
+            handle = original_fdopen(fd, mode, *args, **kwargs)
+            if mode == "wb":
+                return FailingWriter(handle)
+            return handle
+
+        with patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_write):
+            with self.assertRaisesRegex(OSError, "partial staging write"):
+                write_checkpoint(self.path, 11)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 11)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 11)
+
+    def test_staging_fsync_failure_does_not_publish(self):
+        """A failed data sync must leave neither a checkpoint nor staging state."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        real_fsync = os.fsync
+        calls = []
+
+        def fail_staging_sync(fd):
+            calls.append(os.fstat(fd).st_mode)
+            if len(calls) == 1:
+                raise OSError("simulated staging data sync failure")
+            return real_fsync(fd)
+
+        with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_staging_sync):
+            with self.assertRaises(OSError):
+                write_checkpoint(self.path, 10)
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 10)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 10)
 
     def test_directory_fsync_failure_requires_external_reconciliation(self):
         """A post-publication durability error must not be mistaken for success.
