@@ -516,6 +516,49 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 7)
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
 
+    def test_staging_write_failure_does_not_publish(self):
+        """A short/failed staging write must never publish a checkpoint."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        original_fdopen = os.fdopen
+
+        class FailingWriter:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def __enter__(self):
+                self.handle.__enter__()
+                return self
+
+            def __exit__(self, *args):
+                return self.handle.__exit__(*args)
+
+            def write(self, data):
+                self.handle.write(data[:3])
+                raise OSError("simulated partial staging write")
+
+            def __getattr__(self, name):
+                return getattr(self.handle, name)
+
+        def fail_write(fd, mode, *args, **kwargs):
+            handle = original_fdopen(fd, mode, *args, **kwargs)
+            if mode == "wb":
+                return FailingWriter(handle)
+            return handle
+
+        with patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_write):
+            with self.assertRaisesRegex(OSError, "partial staging write"):
+                write_checkpoint(self.path, 11)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 11)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 11)
+
     def test_staging_fsync_failure_does_not_publish(self):
         """A failed data sync must leave neither a checkpoint nor staging state."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
