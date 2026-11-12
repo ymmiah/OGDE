@@ -31,6 +31,29 @@ def checkpoint_digest(revision: int) -> str:
     return hashlib.sha256(_encode(revision)).hexdigest()
 
 
+
+def _open_parent_chain(path: Path) -> int:
+    """Open each directory from the filesystem root without following aliases.
+
+    The returned descriptor is the parent inode used for subsequent operations.
+    Callers own it and must close it. POSIX only; requires dir_fd support.
+    """
+    absolute = path.absolute()
+    parts = absolute.parts
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    fd = os.open(parts[0], flags)
+    try:
+        for part in parts[1:]:
+            if part in ("", ".", ".."):
+                raise SecurityError("Unsafe checkpoint ancestor component")
+            next_fd = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
 def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     """Reject missing, altered, noncanonical or oversized checkpoint files."""
     if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(
@@ -71,7 +94,7 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     parent_fd = -1
     try:
         if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
-            parent_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            parent_fd = _open_parent_chain(p.parent)
             opened_parent = os.fstat(parent_fd)
             if (not stat.S_ISDIR(opened_parent.st_mode)
                     or opened_parent.st_dev != parent.st_dev
@@ -155,7 +178,7 @@ def write_checkpoint(path: str | Path, revision: int, *,
     ):
         raise SecurityError("Checkpoint directory must be owner-controlled")
     # Reject redirection through an ancestor, not just the immediate parent.
-    # This remains path-based; descriptor-relative traversal is a future gate.
+    # POSIX publication additionally traverses ancestors by descriptor.
     for ancestor in p.parent.parents:
         try:
             if stat.S_ISLNK(ancestor.lstat().st_mode):
