@@ -54,12 +54,29 @@ def _open_parent_chain(path: Path) -> int:
         os.close(fd)
         raise
 
+_DIRFD_PRIMITIVES = (os.open, os.link, os.unlink)
+
+
+def _require_posix_dirfd(*, publication: bool = False) -> None:
+    """Reject unsafe POSIX fallbacks rather than silently weakening isolation."""
+    if os.name != "posix":
+        return
+    flags = ("O_DIRECTORY", "O_NOFOLLOW")
+    if publication:
+        flags += ("O_EXCL",)
+    operations = _DIRFD_PRIMITIVES if publication else _DIRFD_PRIMITIVES[:1]
+    if (not all(hasattr(os, flag) for flag in flags)
+            or not all(op in os.supports_dir_fd for op in operations)):
+        raise SecurityError("Descriptor-relative checkpoint operations unavailable")
+
+
 def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     """Reject missing, altered, noncanonical or oversized checkpoint files."""
     if not isinstance(expected_digest, str) or len(expected_digest) != 64 or any(
         c not in "0123456789abcdef" for c in expected_digest
     ):
         raise SecurityError("Independent checkpoint digest required")
+    _require_posix_dirfd()
     p = Path(path)
     # The independently supplied digest protects contents, but the containing
     # directory must also be owner-controlled to prevent local path swaps.
@@ -93,7 +110,7 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     # the checkpoint from silently redirecting the final file lookup.
     parent_fd = -1
     try:
-        if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+        if os.name == "posix":
             parent_fd = _open_parent_chain(p.parent)
             opened_parent = os.fstat(parent_fd)
             if (not stat.S_ISDIR(opened_parent.st_mode)
@@ -161,6 +178,7 @@ def write_checkpoint(path: str | Path, revision: int, *,
     if type(revision) is not int or type(previous_revision) is not int or not 0 <= previous_revision < revision:
         raise SecurityError("Checkpoint rollback or invalid previous revision")
     raw = _encode(revision)
+    _require_posix_dirfd(publication=True)
     p = Path(path)
     if p.is_symlink() or p.exists():
         raise SecurityError("Refusing to overwrite checkpoint; archive and verify previous state first")
@@ -190,9 +208,7 @@ def write_checkpoint(path: str | Path, revision: int, *,
     # window before the descriptor-relative staging transaction.
     # POSIX publication uses a single verified parent descriptor for staging,
     # exclusive linking, cleanup and durability. Do not reopen the path.
-    if os.name == "posix" and all(
-        hasattr(os, flag) for flag in ("O_DIRECTORY", "O_NOFOLLOW", "O_EXCL")
-    ) and os.open in os.supports_dir_fd and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd:
+    if os.name == "posix":
         import secrets
         try:
             parent_fd = _open_parent_chain(p.parent)
