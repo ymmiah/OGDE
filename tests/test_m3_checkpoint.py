@@ -426,6 +426,29 @@ class CheckpointTests(unittest.TestCase):
             write_checkpoint(self.path, 1)
         self.assertFalse(self.path.exists())
 
+    def test_writer_uses_single_verified_parent_descriptor(self):
+        """Publication must not reopen its parent after descriptor validation."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+
+        real_open = os.open
+        parent_opens = []
+
+        def observe_open(path, flags, *args, **kwargs):
+            if Path(path) == self.path.parent and flags & os.O_DIRECTORY:
+                parent_opens.append(path)
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=observe_open):
+            digest = write_checkpoint(self.path, 8)
+        self.assertEqual(len(parent_opens), 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 8)
+
     def test_directory_sync_follows_staging_cleanup(self):
         """Directory fsync must observe no leftover staging entry."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
