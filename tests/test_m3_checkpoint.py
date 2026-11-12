@@ -426,6 +426,36 @@ class CheckpointTests(unittest.TestCase):
             write_checkpoint(self.path, 1)
         self.assertFalse(self.path.exists())
 
+    def test_directory_sync_follows_staging_cleanup(self):
+        """Successful POSIX publication durably records removal of staging state."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+        import stat
+
+        real_unlink, real_fsync = os.unlink, os.fsync
+        events = []
+
+        def tracked_unlink(path, *args, **kwargs):
+            if str(path).startswith(".ogde-checkpoint-"):
+                events.append("cleanup")
+            return real_unlink(path, *args, **kwargs)
+
+        def tracked_fsync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                events.append("directory-sync")
+            return real_fsync(fd)
+
+        with patch("ogde.m3_checkpoint.os.unlink", side_effect=tracked_unlink), \\
+             patch("ogde.m3_checkpoint.os.fsync", side_effect=tracked_fsync):
+            digest = write_checkpoint(self.path, 7)
+        self.assertEqual(events, ["cleanup", "directory-sync"])
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 7)
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+
     def test_directory_fsync_failure_requires_external_reconciliation(self):
         """A post-publication durability error must not be mistaken for success.
 
