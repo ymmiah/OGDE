@@ -449,8 +449,8 @@ class CheckpointTests(unittest.TestCase):
                 events.append("directory-sync")
             return real_fsync(fd)
 
-        with patch("ogde.m3_checkpoint.os.unlink", side_effect=tracked_unlink), \\
-             patch("ogde.m3_checkpoint.os.fsync", side_effect=tracked_fsync):
+        with (patch("ogde.m3_checkpoint.os.unlink", side_effect=tracked_unlink),
+              patch("ogde.m3_checkpoint.os.fsync", side_effect=tracked_fsync)):
             digest = write_checkpoint(self.path, 7)
         self.assertEqual(events, ["cleanup", "directory-sync"])
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 7)
