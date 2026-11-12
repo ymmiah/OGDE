@@ -483,6 +483,38 @@ class CheckpointTests(unittest.TestCase):
         self.assertTrue(swapped)
         self.assertFalse((outside / "inner" / "checkpoint.json").exists())
 
+    def test_reader_rejects_ancestor_symlink_swap_during_descriptor_walk(self):
+        """A swapped ancestor must not redirect an independently verified read."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and hasattr(os, "O_NOFOLLOW") and os.open in os.supports_dir_fd):
+            self.skipTest("POSIX descriptor traversal required")
+        from unittest.mock import patch
+
+        parent = Path(self.tmp.name) / "outer" / "inner"
+        parent.mkdir(parents=True)
+        checkpoint = parent / "checkpoint.json"
+        digest = write_checkpoint(checkpoint, 5)
+        outside = Path(self.tmp.name) / "outside"
+        (outside / "inner").mkdir(parents=True)
+        real_open = os.open
+        swapped = False
+
+        def swap_during_read(path, flags, *args, **kwargs):
+            nonlocal swapped
+            if path == "outer" and kwargs.get("dir_fd") is not None and not swapped:
+                swapped = True
+                (Path(self.tmp.name) / "outer").rename(Path(self.tmp.name) / "old-outer")
+                (Path(self.tmp.name) / "outer").symlink_to(outside, target_is_directory=True)
+            return real_open(path, flags, *args, **kwargs)
+
+        with patch("ogde.m3_checkpoint.os.open", side_effect=swap_during_read):
+            with self.assertRaises(SecurityError):
+                read_checkpoint(checkpoint, expected_digest=digest)
+        self.assertTrue(swapped)
+        self.assertEqual(read_checkpoint(
+            Path(self.tmp.name) / "old-outer" / "inner" / "checkpoint.json",
+            expected_digest=digest), 5)
+
     def test_staging_file_is_exclusive_private_and_descriptor_relative(self):
         """Checkpoint staging must never use a path-based or shared file."""
         if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
