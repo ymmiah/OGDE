@@ -181,22 +181,55 @@ def write_checkpoint(path: str | Path, revision: int, *,
                 raise SecurityError("Checkpoint directory changed or unsafe")
         finally:
             os.close(parent_fd)
-    fd, tmp = tempfile.mkstemp(prefix=".ogde-checkpoint-", dir=p.parent)
-    try:
-        with os.fdopen(fd, "wb") as handle:
-            os.fchmod(handle.fileno(), 0o600) if hasattr(os, "fchmod") else None
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
-        # Exclusive creation prevents accidental overwrite. This is not a
-        # concurrency-safe transaction across independently running writers.
-        os.link(tmp, p)
-        if hasattr(os, "O_DIRECTORY"):
-            directory_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY)
+    # POSIX publication uses a single verified parent descriptor for staging,
+    # exclusive linking, cleanup and durability. Do not reopen the path.
+    if os.name == "posix" and all(
+        hasattr(os, flag) for flag in ("O_DIRECTORY", "O_NOFOLLOW", "O_EXCL")
+    ) and os.open in os.supports_dir_fd and os.link in os.supports_dir_fd and os.unlink in os.supports_dir_fd:
+        import secrets
+        try:
+            parent_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        except OSError as exc:
+            raise SecurityError("Checkpoint directory missing or unsafe") from exc
+        try:
+            opened = os.fstat(parent_fd)
+            if (not stat.S_ISDIR(opened.st_mode)
+                    or opened.st_dev != directory.st_dev
+                    or opened.st_ino != directory.st_ino
+                    or opened.st_uid != os.geteuid()
+                    or opened.st_mode & 0o022):
+                raise SecurityError("Checkpoint directory changed or unsafe")
+            tmp_name = ".ogde-checkpoint-" + secrets.token_hex(16)
+            fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         0o600, dir_fd=parent_fd)
             try:
-                os.fsync(directory_fd)
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(raw)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                # The target must not be replaced or overwritten.
+                os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                os.fsync(parent_fd)
             finally:
-                os.close(directory_fd)
-    finally:
-        os.unlink(tmp)
+                os.unlink(tmp_name, dir_fd=parent_fd)
+        finally:
+            os.close(parent_fd)
+    else:
+        # Non-POSIX compatibility path; no claim of race-free publication.
+        fd, tmp = tempfile.mkstemp(prefix=".ogde-checkpoint-", dir=p.parent)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                os.fchmod(handle.fileno(), 0o600) if hasattr(os, "fchmod") else None
+                handle.write(raw)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.link(tmp, p)
+            if hasattr(os, "O_DIRECTORY"):
+                directory_fd = os.open(p.parent, os.O_RDONLY | os.O_DIRECTORY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+        finally:
+            os.unlink(tmp)
     return hashlib.sha256(raw).hexdigest()
