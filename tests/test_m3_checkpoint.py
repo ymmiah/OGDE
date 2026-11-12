@@ -272,11 +272,16 @@ class CheckpointTests(unittest.TestCase):
 
         original_link = os.link
 
-        def competing_writer(source, destination):
-            # Simulate a competing writer publishing first.
-            existing = Path(destination)
-            existing.write_bytes(b"another writer's state")
-            return original_link(source, destination)
+        def competing_writer(source, destination, **kwargs):
+            # Simulate a competing writer publishing first in the same dirfd.
+            if "dst_dir_fd" in kwargs:
+                fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                             0o600, dir_fd=kwargs["dst_dir_fd"])
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(b"another writer's state")
+            else:
+                Path(destination).write_bytes(b"another writer's state")
+            return original_link(source, destination, **kwargs)
 
         with patch("ogde.m3_checkpoint.os.link", side_effect=competing_writer):
             with self.assertRaises(FileExistsError):
@@ -340,6 +345,66 @@ class CheckpointTests(unittest.TestCase):
         digest = write_checkpoint(self.path, 1)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
 
+    def test_write_rejects_parent_descriptor_inode_mismatch(self):
+        """A swapped parent inode must fail before temporary file creation."""
+        if os.name != "posix" or not all(
+            hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW")
+        ):
+            self.skipTest("POSIX descriptor checks required")
+        import stat
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        real_fstat = os.fstat
+
+        def swapped_parent(fd):
+            metadata = real_fstat(fd)
+            if stat.S_ISDIR(metadata.st_mode):
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode, st_dev=metadata.st_dev,
+                    st_ino=metadata.st_ino + 1, st_uid=metadata.st_uid
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.os.fstat", side_effect=swapped_parent):
+            with self.assertRaises(SecurityError):
+                write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
+    def test_write_rejects_parent_descriptor_permission_change(self):
+        """A permission change after stat must fail before staging files."""
+        if os.name != "posix" or not all(
+            hasattr(os, name) for name in ("O_DIRECTORY", "O_NOFOLLOW")
+        ):
+            self.skipTest("POSIX descriptor checks required")
+        import stat
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        real_fstat = os.fstat
+
+        def widened_parent(fd):
+            metadata = real_fstat(fd)
+            if stat.S_ISDIR(metadata.st_mode):
+                return SimpleNamespace(
+                    st_mode=metadata.st_mode | 0o020,
+                    st_dev=metadata.st_dev,
+                    st_ino=metadata.st_ino,
+                    st_uid=metadata.st_uid,
+                )
+            return metadata
+
+        with patch("ogde.m3_checkpoint.os.fstat", side_effect=widened_parent):
+            with self.assertRaises(SecurityError):
+                write_checkpoint(self.path, 1)
+        self.assertFalse(self.path.exists())
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
+        digest = write_checkpoint(self.path, 1)
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 1)
+
     def test_shared_writable_parent_rejected(self):
         """A second local user must not control checkpoint directory entries."""
         if os.name != "posix":
@@ -360,6 +425,36 @@ class CheckpointTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             write_checkpoint(self.path, 1)
         self.assertFalse(self.path.exists())
+
+    def test_directory_sync_follows_staging_cleanup(self):
+        """Directory fsync must observe no leftover staging entry."""
+        if not (os.name == "posix" and hasattr(os, "O_DIRECTORY")
+                and os.open in os.supports_dir_fd
+                and os.link in os.supports_dir_fd
+                and os.unlink in os.supports_dir_fd):
+            self.skipTest("Descriptor-relative POSIX publication required")
+        from unittest.mock import patch
+        import stat
+
+        real_fsync = os.fsync
+        directory_syncs = []
+
+        def inspect_directory_at_sync(fd):
+            if stat.S_ISDIR(os.fstat(fd).st_mode):
+                directory_syncs.append(True)
+                self.assertEqual(
+                    list(self.path.parent.glob(".ogde-checkpoint-*")), [],
+                    "Staging entry must be removed before directory fsync",
+                )
+                self.assertTrue(self.path.exists())
+            return real_fsync(fd)
+
+        with patch("ogde.m3_checkpoint.os.fsync",
+                   side_effect=inspect_directory_at_sync):
+            digest = write_checkpoint(self.path, 7)
+        self.assertEqual(directory_syncs, [True])
+        self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 7)
+        self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
 
     def test_directory_fsync_failure_requires_external_reconciliation(self):
         """A post-publication durability error must not be mistaken for success.
