@@ -476,8 +476,12 @@ class CheckpointTests(unittest.TestCase):
                                  self.path.parent.stat().st_ino)
             return real_open(path, flags, *args, **kwargs)
 
-        with patch("ogde.m3_checkpoint.os.open", side_effect=inspect_open):
-            digest = write_checkpoint(self.path, 9)
+        # Mocking os.open changes its identity; preserve dir_fd registration
+        # for the instrumented callable so this tests the POSIX path.
+        with patch("ogde.m3_checkpoint.os.open", side_effect=inspect_open) as mocked_open:
+            with patch("ogde.m3_checkpoint.os.supports_dir_fd",
+                       new=os.supports_dir_fd | {mocked_open}):
+                digest = write_checkpoint(self.path, 9)
         self.assertEqual(len(staging_calls), 1)
         self.assertEqual(read_checkpoint(self.path, expected_digest=digest), 9)
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
