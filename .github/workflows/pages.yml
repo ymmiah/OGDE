@@ -30,7 +30,7 @@ jobs:
           test -f site/public/CNAME
           grep -q 'assets/brand/ogde-logo.svg' site/public/index.html
           grep -q 'ogde inventory' site/public/index.html
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site/public
