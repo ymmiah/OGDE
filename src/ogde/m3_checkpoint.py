@@ -226,7 +226,12 @@ def write_checkpoint(path: str | Path, revision: int, *,
             fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                          0o600, dir_fd=parent_fd)
             try:
-                with os.fdopen(fd, "wb") as handle:
+                try:
+                    handle = os.fdopen(fd, "wb")
+                except BaseException:
+                    os.close(fd)
+                    raise
+                with handle:
                     handle.write(raw)
                     handle.flush()
                     os.fsync(handle.fileno())
