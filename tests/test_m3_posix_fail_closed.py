@@ -26,6 +26,27 @@ class CheckpointFailClosedTests(unittest.TestCase):
             self.assertFalse(target.exists())
             self.assertEqual(list(Path(directory).iterdir()), [])
 
+    def test_read_rejects_missing_directory_or_nofollow_flags(self):
+        # Capability checks must precede any pathname access.
+        for flag in ("O_DIRECTORY", "O_NOFOLLOW"):
+            with self.subTest(flag=flag):
+                with mock.patch.object(os, flag):
+                    delattr(os, flag)
+                    with self.assertRaisesRegex(SecurityError, "Descriptor-relative"):
+                        read_checkpoint("/nonexistent/checkpoint.json",
+                                        expected_digest=checkpoint_digest(1))
+
+    def test_write_rejects_missing_required_flags_without_staging(self):
+        for flag in ("O_DIRECTORY", "O_NOFOLLOW", "O_EXCL"):
+            with self.subTest(flag=flag):
+                with tempfile.TemporaryDirectory() as directory:
+                    target = Path(directory) / "checkpoint.json"
+                    with mock.patch.object(os, flag):
+                        delattr(os, flag)
+                        with self.assertRaisesRegex(SecurityError, "Descriptor-relative"):
+                            write_checkpoint(target, 1)
+                    self.assertEqual(list(Path(directory).iterdir()), [])
+
 
 if __name__ == "__main__":
     unittest.main()
