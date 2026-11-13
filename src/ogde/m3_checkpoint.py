@@ -64,6 +64,10 @@ def _require_posix_dirfd(*, publication: bool = False) -> None:
     flags = ("O_DIRECTORY", "O_NOFOLLOW")
     if publication:
         flags += ("O_EXCL",)
+    else:
+        # A FIFO or device substituted for the checkpoint must never block
+        # before fstat can reject its inode type.
+        flags += ("O_NONBLOCK",)
     operations = _DIRFD_PRIMITIVES if publication else _DIRFD_PRIMITIVES[:1]
     if (not all(hasattr(os, flag) for flag in flags)
             or not all(op in os.supports_dir_fd for op in operations)):
@@ -226,7 +230,12 @@ def write_checkpoint(path: str | Path, revision: int, *,
             fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                          0o600, dir_fd=parent_fd)
             try:
-                with os.fdopen(fd, "wb") as handle:
+                try:
+                    handle = os.fdopen(fd, "wb")
+                except BaseException:
+                    os.close(fd)
+                    raise
+                with handle:
                     handle.write(raw)
                     handle.flush()
                     os.fsync(handle.fileno())
