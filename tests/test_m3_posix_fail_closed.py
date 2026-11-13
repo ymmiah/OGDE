@@ -62,5 +62,39 @@ class CheckpointFailClosedTests(unittest.TestCase):
                     self.assertEqual(list(Path(directory).iterdir()), [])
 
 
+    def test_staging_fsync_failure_cleans_up_without_publication(self):
+        # A failed durability barrier must never publish the checkpoint.
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "checkpoint.json"
+            with mock.patch("ogde.m3_checkpoint.os.fsync",
+                            side_effect=OSError("synthetic staging fsync failure")):
+                with self.assertRaises(OSError):
+                    write_checkpoint(target, 1)
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
+    def test_exclusive_link_failure_closes_parent_descriptor(self):
+        # The parent directory fd must be released even on failed publication.
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "checkpoint.json"
+            import ogde.m3_checkpoint as checkpoint
+            real_open_parent = checkpoint._open_parent_chain
+            opened = []
+
+            def tracked_open(path):
+                fd = real_open_parent(path)
+                opened.append(fd)
+                return fd
+
+            with mock.patch.object(checkpoint, "_open_parent_chain",
+                                   side_effect=tracked_open):
+                with mock.patch.object(checkpoint.os, "link",
+                                       side_effect=FileExistsError("synthetic race")):
+                    with self.assertRaises(FileExistsError):
+                        write_checkpoint(target, 1)
+            self.assertEqual(len(opened), 1)
+            with self.assertRaises(OSError):
+                os.fstat(opened[0])
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
 if __name__ == "__main__":
     unittest.main()
