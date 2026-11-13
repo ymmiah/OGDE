@@ -96,5 +96,27 @@ class CheckpointFailClosedTests(unittest.TestCase):
                 os.fstat(opened[0])
             self.assertEqual(list(Path(directory).iterdir()), [])
 
+    def test_missing_checkpoint_read_closes_parent_descriptor(self):
+        # A failed descriptor-relative final open must release the parent fd.
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "missing.json"
+            import ogde.m3_checkpoint as checkpoint
+            real_open_parent = checkpoint._open_parent_chain
+            opened = []
+
+            def tracked_open(path):
+                fd = real_open_parent(path)
+                opened.append(fd)
+                return fd
+
+            with mock.patch.object(checkpoint, "_open_parent_chain",
+                                   side_effect=tracked_open):
+                with self.assertRaises(SecurityError):
+                    read_checkpoint(target, expected_digest=checkpoint_digest(1))
+            self.assertEqual(len(opened), 1)
+            with self.assertRaises(OSError):
+                os.fstat(opened[0])
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
 if __name__ == "__main__":
     unittest.main()
