@@ -72,6 +72,32 @@ class CheckpointFailClosedTests(unittest.TestCase):
                     write_checkpoint(target, 1)
             self.assertEqual(list(Path(directory).iterdir()), [])
 
+    def test_directory_fsync_failure_requires_manual_reconciliation(self):
+        # The final link may already exist when directory durability fails.
+        # An exception is not evidence that publication was rolled back.
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "checkpoint.json"
+            real_fsync = os.fsync
+            calls = []
+
+            def fail_directory_sync(fd):
+                calls.append(fd)
+                if len(calls) == 2:
+                    raise OSError("synthetic directory durability failure")
+                return real_fsync(fd)
+
+            with mock.patch("ogde.m3_checkpoint.os.fsync",
+                            side_effect=fail_directory_sync):
+                with self.assertRaisesRegex(OSError, "directory durability"):
+                    write_checkpoint(target, 1)
+
+            self.assertEqual(len(calls), 2)
+            self.assertTrue(target.is_file())
+            self.assertEqual(read_checkpoint(
+                target, expected_digest=checkpoint_digest(1)), 1)
+            self.assertEqual([p.name for p in Path(directory).iterdir()],
+                             ["checkpoint.json"])
+
     def test_exclusive_link_failure_closes_parent_descriptor(self):
         # The parent directory fd must be released even on failed publication.
         with tempfile.TemporaryDirectory() as directory:
