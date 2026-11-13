@@ -64,6 +64,10 @@ def _require_posix_dirfd(*, publication: bool = False) -> None:
     flags = ("O_DIRECTORY", "O_NOFOLLOW")
     if publication:
         flags += ("O_EXCL",)
+    else:
+        # A FIFO or device substituted for the checkpoint must never block
+        # before fstat can reject its inode type.
+        flags += ("O_NONBLOCK",)
     operations = _DIRFD_PRIMITIVES if publication else _DIRFD_PRIMITIVES[:1]
     if (not all(hasattr(os, flag) for flag in flags)
             or not all(op in os.supports_dir_fd for op in operations)):
