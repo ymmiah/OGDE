@@ -26,6 +26,20 @@ class CheckpointFailClosedTests(unittest.TestCase):
             self.assertFalse(target.exists())
             self.assertEqual(list(Path(directory).iterdir()), [])
 
+    def test_publication_requires_each_descriptor_relative_primitive(self):
+        # A platform may support dir_fd for open but not for link or unlink.
+        # Reject before opening a staging file rather than using path fallback.
+        required = (os.open, os.link, os.unlink)
+        for missing in required:
+            with self.subTest(missing=missing.__name__):
+                with tempfile.TemporaryDirectory() as directory:
+                    target = Path(directory) / "checkpoint.json"
+                    capabilities = set(os.supports_dir_fd) - {missing}
+                    with mock.patch.object(os, "supports_dir_fd", capabilities):
+                        with self.assertRaisesRegex(SecurityError, "Descriptor-relative"):
+                            write_checkpoint(target, 1)
+                    self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_read_rejects_missing_directory_or_nofollow_flags(self):
         # Capability checks must precede any pathname access.
         for flag in ("O_DIRECTORY", "O_NOFOLLOW"):
