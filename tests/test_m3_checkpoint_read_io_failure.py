@@ -49,5 +49,27 @@ class CheckpointReadFailureTests(unittest.TestCase):
             self.assertEqual(read_checkpoint(path, expected_digest=digest), 1)
 
 
+    def test_fdopen_error_is_security_error_and_closes_descriptor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            digest = write_checkpoint(path, 1)
+            opened = []
+            real_fdopen = os.fdopen
+
+            def fail_fdopen(fd, mode):
+                self.assertEqual(mode, "rb")
+                opened.append(fd)
+                raise OSError("synthetic fdopen failure")
+
+            with patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_fdopen):
+                with self.assertRaisesRegex(SecurityError, "reader could not be opened safely"):
+                    read_checkpoint(path, expected_digest=digest)
+
+            self.assertEqual(len(opened), 1)
+            with self.assertRaises(OSError):
+                os.fstat(opened[0])
+            self.assertEqual(read_checkpoint(path, expected_digest=digest), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
