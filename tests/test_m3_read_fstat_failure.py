@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from ogde.core import SecurityError
 from ogde.m3_checkpoint import read_checkpoint, write_checkpoint
 
 
@@ -33,7 +34,7 @@ class ReadMetadataFailureTests(unittest.TestCase):
                 return real_fstat(fd)
 
             with mock.patch("ogde.m3_checkpoint.os.fstat", side_effect=fail_file_fstat):
-                with self.assertRaisesRegex(OSError, "synthetic checkpoint metadata failure"):
+                with self.assertRaisesRegex(SecurityError, "Checkpoint metadata unavailable or unsafe"):
                     read_checkpoint(target, expected_digest=digest)
 
             self.assertEqual(calls, 2)

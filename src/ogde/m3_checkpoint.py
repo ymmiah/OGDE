@@ -116,7 +116,10 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     try:
         if os.name == "posix":
             parent_fd = _open_parent_chain(p.parent)
-            opened_parent = os.fstat(parent_fd)
+            try:
+                opened_parent = os.fstat(parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint directory missing or unsafe") from exc
             if (not stat.S_ISDIR(opened_parent.st_mode)
                     or opened_parent.st_dev != parent.st_dev
                     or opened_parent.st_ino != parent.st_ino
@@ -134,7 +137,10 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     try:
         # fstat before fdopen: Python rejects directory descriptors during
         # fdopen(), and all unsafe inode types must fail as SecurityError.
-        metadata = os.fstat(fd)
+        try:
+            metadata = os.fstat(fd)
+        except OSError as exc:
+            raise SecurityError("Checkpoint metadata unavailable or unsafe") from exc
         if not stat.S_ISREG(metadata.st_mode):
             raise SecurityError("Checkpoint missing or unsafe")
         # The checkpoint inode must belong to the verifying local user.
@@ -150,7 +156,10 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
                 raise SecurityError("Checkpoint hard links are unsafe")
             if metadata.st_size > _MAX_STATE_BYTES:
                 raise SecurityError("Checkpoint integrity mismatch")
-            raw = handle.read(_MAX_STATE_BYTES + 1)
+            try:
+                raw = handle.read(_MAX_STATE_BYTES + 1)
+            except OSError as exc:
+                raise SecurityError("Checkpoint contents could not be read safely") from exc
     finally:
         if fd >= 0:
             os.close(fd)
@@ -219,7 +228,10 @@ def write_checkpoint(path: str | Path, revision: int, *,
         except OSError as exc:
             raise SecurityError("Checkpoint directory missing or unsafe") from exc
         try:
-            opened = os.fstat(parent_fd)
+            try:
+                opened = os.fstat(parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint directory missing or unsafe") from exc
             if (not stat.S_ISDIR(opened.st_mode)
                     or opened.st_dev != directory.st_dev
                     or opened.st_ino != directory.st_ino
@@ -227,8 +239,11 @@ def write_checkpoint(path: str | Path, revision: int, *,
                     or opened.st_mode & 0o022):
                 raise SecurityError("Checkpoint directory changed or unsafe")
             tmp_name = ".ogde-checkpoint-" + secrets.token_hex(16)
-            fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                         0o600, dir_fd=parent_fd)
+            try:
+                fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint staging file could not be created safely") from exc
             try:
                 try:
                     handle = os.fdopen(fd, "wb")
