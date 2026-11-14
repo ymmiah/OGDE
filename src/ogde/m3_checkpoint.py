@@ -225,7 +225,10 @@ def write_checkpoint(path: str | Path, revision: int, *,
         except OSError as exc:
             raise SecurityError("Checkpoint directory missing or unsafe") from exc
         try:
-            opened = os.fstat(parent_fd)
+            try:
+                opened = os.fstat(parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint directory missing or unsafe") from exc
             if (not stat.S_ISDIR(opened.st_mode)
                     or opened.st_dev != directory.st_dev
                     or opened.st_ino != directory.st_ino
