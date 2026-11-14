@@ -156,7 +156,10 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
                 raise SecurityError("Checkpoint hard links are unsafe")
             if metadata.st_size > _MAX_STATE_BYTES:
                 raise SecurityError("Checkpoint integrity mismatch")
-            raw = handle.read(_MAX_STATE_BYTES + 1)
+            try:
+                raw = handle.read(_MAX_STATE_BYTES + 1)
+            except OSError as exc:
+                raise SecurityError("Checkpoint contents could not be read safely") from exc
     finally:
         if fd >= 0:
             os.close(fd)
