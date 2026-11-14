@@ -236,8 +236,11 @@ def write_checkpoint(path: str | Path, revision: int, *,
                     or opened.st_mode & 0o022):
                 raise SecurityError("Checkpoint directory changed or unsafe")
             tmp_name = ".ogde-checkpoint-" + secrets.token_hex(16)
-            fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                         0o600, dir_fd=parent_fd)
+            try:
+                fd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint staging file could not be created safely") from exc
             try:
                 try:
                     handle = os.fdopen(fd, "wb")
