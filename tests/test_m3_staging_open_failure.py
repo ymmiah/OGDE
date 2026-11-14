@@ -35,9 +35,11 @@ class CheckpointStagingOpenFailureTests(unittest.TestCase):
                 closed.append(fd)
                 return real_close(fd)
 
-            with patch("ogde.m3_checkpoint.os.open", side_effect=fail_staging_open), patch(
-                "ogde.m3_checkpoint.os.close", side_effect=track_close
-            ):
+            # The mock replaces os.open and therefore cannot appear in
+            # os.supports_dir_fd; the real capability check runs on recovery.
+            with patch("ogde.m3_checkpoint._require_posix_dirfd"), patch(
+                "ogde.m3_checkpoint.os.open", side_effect=fail_staging_open
+            ), patch("ogde.m3_checkpoint.os.close", side_effect=track_close):
                 with self.assertRaisesRegex(SecurityError, "staging file could not be created safely"):
                     write_checkpoint(target, 1)
 
