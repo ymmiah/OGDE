@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from ogde.core import SecurityError
 from ogde.m3_checkpoint import checkpoint_digest, read_checkpoint, write_checkpoint
 
 
@@ -27,7 +28,7 @@ class ReadDescriptorTests(unittest.TestCase):
                 raise OSError("synthetic read fdopen failure")
 
             with mock.patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_fdopen):
-                with self.assertRaisesRegex(OSError, "synthetic read fdopen failure"):
+                with self.assertRaisesRegex(SecurityError, "Checkpoint reader could not be opened safely"):
                     read_checkpoint(target, expected_digest=digest)
 
             self.assertEqual(len(captured), 1)
