@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from ogde.core import SecurityError
 from ogde.m3_checkpoint import write_checkpoint
 
 
@@ -42,7 +43,7 @@ class CheckpointPublicationFailureTests(unittest.TestCase):
                 return original_open(path, flags, *args, **kwargs)
 
             with patch("ogde.m3_checkpoint.os.open", side_effect=fail_staging):
-                with self.assertRaisesRegex(OSError, "simulated staging failure"):
+                with self.assertRaisesRegex(SecurityError, "Checkpoint staging file could not be created safely"):
                     write_checkpoint(target, 1)
             self.assertFalse(target.exists())
             self.assertEqual(list(Path(directory).iterdir()), [])
