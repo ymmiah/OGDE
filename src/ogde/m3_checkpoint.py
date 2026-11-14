@@ -137,7 +137,10 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     try:
         # fstat before fdopen: Python rejects directory descriptors during
         # fdopen(), and all unsafe inode types must fail as SecurityError.
-        metadata = os.fstat(fd)
+        try:
+            metadata = os.fstat(fd)
+        except OSError as exc:
+            raise SecurityError("Checkpoint metadata unavailable or unsafe") from exc
         if not stat.S_ISREG(metadata.st_mode):
             raise SecurityError("Checkpoint missing or unsafe")
         # The checkpoint inode must belong to the verifying local user.
