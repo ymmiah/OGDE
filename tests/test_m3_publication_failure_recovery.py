@@ -25,7 +25,7 @@ class CheckpointPublicationFailureTests(unittest.TestCase):
             target = Path(directory) / "checkpoint.json"
             with patch("ogde.m3_checkpoint.os.link",
                        side_effect=OSError("simulated link failure")) as link:
-                with self.assertRaisesRegex(OSError, "simulated link failure"):
+                with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                     write_checkpoint(target, 1)
             link.assert_called_once()
             self.assertFalse(target.exists())
