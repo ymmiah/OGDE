@@ -740,7 +740,7 @@ class CheckpointTests(unittest.TestCase):
             return real_fsync(fd)
 
         with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_directory_fsync):
-            with self.assertRaises(OSError):
+            with self.assertRaisesRegex(SecurityError, "publication durability unverified"):
                 write_checkpoint(self.path, 5)
         self.assertEqual(calls, 2)
         self.assertTrue(self.path.exists())
