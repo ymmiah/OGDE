@@ -30,7 +30,7 @@ class CheckpointCleanupFailureTests(unittest.TestCase):
 
             with patch("ogde.m3_checkpoint.os.unlink",
                        side_effect=fail_staging_unlink):
-                with self.assertRaisesRegex(OSError, "staging cleanup"):
+                with self.assertRaisesRegex(SecurityError, "publication state requires human review"):
                     write_checkpoint(target, 1)
 
             self.assertTrue(target.is_file())
