@@ -261,7 +261,7 @@ class CheckpointTests(unittest.TestCase):
         from unittest.mock import patch
 
         with patch("ogde.m3_checkpoint.os.link", side_effect=OSError("simulated link failure")):
-            with self.assertRaises(OSError):
+            with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                 write_checkpoint(self.path, 4)
         self.assertFalse(self.path.exists())
         self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
@@ -284,7 +284,7 @@ class CheckpointTests(unittest.TestCase):
             return original_link(source, destination, **kwargs)
 
         with patch("ogde.m3_checkpoint.os.link", side_effect=competing_writer):
-            with self.assertRaises(FileExistsError):
+            with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                 write_checkpoint(self.path, 4)
         self.assertEqual(self.path.read_bytes(), b"another writer's state")
         self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
