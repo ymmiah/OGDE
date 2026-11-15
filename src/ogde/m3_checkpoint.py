@@ -259,7 +259,10 @@ def write_checkpoint(path: str | Path, revision: int, *,
                     handle.flush()
                     os.fsync(handle.fileno())
                 # The target must not be replaced or overwritten.
-                os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                try:
+                    os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                except OSError as exc:
+                    raise SecurityError("Checkpoint publication failed safely") from exc
             finally:
                 # Remove staging state before syncing the directory so a
                 # successful return covers both publication and cleanup.
