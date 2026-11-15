@@ -88,7 +88,7 @@ class CheckpointFailClosedTests(unittest.TestCase):
 
             with mock.patch("ogde.m3_checkpoint.os.fsync",
                             side_effect=fail_directory_sync):
-                with self.assertRaisesRegex(OSError, "directory durability"):
+                with self.assertRaisesRegex(SecurityError, "publication durability unverified"):
                     write_checkpoint(target, 1)
 
             self.assertEqual(len(calls), 2)
