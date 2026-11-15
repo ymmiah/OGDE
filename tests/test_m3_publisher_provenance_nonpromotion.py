@@ -37,5 +37,34 @@ class PublisherProvenanceNonPromotionTests(unittest.TestCase):
                     assess_publisher_provenance(invalid)
 
 
+    def test_hostile_mapping_is_not_interpreted(self):
+        from collections.abc import Mapping
+
+        class HostileMapping(Mapping):
+            def __getitem__(self, key):
+                raise AssertionError("untrusted attestation accessed")
+
+            def __iter__(self):
+                raise AssertionError("untrusted attestation iterated")
+
+            def __len__(self):
+                raise AssertionError("untrusted attestation measured")
+
+        assessment = assess_publisher_provenance(HostileMapping())
+        self.assertFalse(assessment.publisher_authenticated)
+        self.assertEqual(assessment.decision, "human-review")
+
+    def test_assessment_is_immutable_and_export_is_detached(self):
+        from dataclasses import FrozenInstanceError
+
+        assessment = assess_publisher_provenance({"publisher_authenticated": True})
+        with self.assertRaises(FrozenInstanceError):
+            assessment.publisher_authenticated = True
+
+        exported = assessment.as_dict()
+        exported["publisher_authenticated"] = True
+        self.assertFalse(assessment.publisher_authenticated)
+        self.assertFalse(assessment.as_dict()["publisher_authenticated"])
+
 if __name__ == "__main__":
     unittest.main()
