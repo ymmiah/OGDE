@@ -266,8 +266,14 @@ def write_checkpoint(path: str | Path, revision: int, *,
             finally:
                 # Remove staging state before syncing the directory so a
                 # successful return covers both publication and cleanup.
-                os.unlink(tmp_name, dir_fd=parent_fd)
-            os.fsync(parent_fd)
+                try:
+                    os.unlink(tmp_name, dir_fd=parent_fd)
+                except OSError as exc:
+                    raise SecurityError("Checkpoint staging cleanup failed; publication state requires human review") from exc
+            try:
+                os.fsync(parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint directory sync failed; publication durability unverified") from exc
         finally:
             os.close(parent_fd)
     else:
