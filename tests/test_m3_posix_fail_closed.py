@@ -115,7 +115,7 @@ class CheckpointFailClosedTests(unittest.TestCase):
                                    side_effect=tracked_open):
                 with mock.patch.object(checkpoint.os, "link",
                                        side_effect=FileExistsError("synthetic race")):
-                    with self.assertRaises(FileExistsError):
+                    with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                         write_checkpoint(target, 1)
             self.assertEqual(len(opened), 1)
             with self.assertRaises(OSError):
