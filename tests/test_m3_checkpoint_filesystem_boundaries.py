@@ -49,6 +49,20 @@ class CheckpointFilesystemBoundaryTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             read_checkpoint(self.target, expected_digest=digest)
 
+    def test_fifo_checkpoint_is_rejected_without_blocking(self):
+        # O_NONBLOCK must be used before checking the inode type.
+        os.mkfifo(self.target, mode=0o600)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.target, expected_digest=checkpoint_digest(2))
+
+    def test_group_writable_parent_rejected_for_read_and_write(self):
+        digest = write_checkpoint(self.target, 2)
+        self.state.chmod(0o770)
+        with self.assertRaises(SecurityError):
+            read_checkpoint(self.target, expected_digest=digest)
+        with self.assertRaises(SecurityError):
+            write_checkpoint(self.state / "next.json", 3, previous_revision=2)
+
     def test_checkpoint_revision_digest_is_deterministic(self):
         self.assertEqual(write_checkpoint(self.target, 2), checkpoint_digest(2))
 
