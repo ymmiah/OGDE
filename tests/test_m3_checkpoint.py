@@ -684,7 +684,7 @@ class CheckpointTests(unittest.TestCase):
             return handle
 
         with patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_write):
-            with self.assertRaisesRegex(OSError, "partial staging write"):
+            with self.assertRaisesRegex(SecurityError, "staging write or sync failed"):
                 write_checkpoint(self.path, 11)
         self.assertFalse(self.path.exists())
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
@@ -710,7 +710,7 @@ class CheckpointTests(unittest.TestCase):
             return real_fsync(fd)
 
         with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_staging_sync):
-            with self.assertRaises(OSError):
+            with self.assertRaisesRegex(SecurityError, "staging write or sync failed"):
                 write_checkpoint(self.path, 10)
         self.assertEqual(len(calls), 1)
         self.assertFalse(self.path.exists())
