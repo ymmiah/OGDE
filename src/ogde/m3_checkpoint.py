@@ -251,6 +251,9 @@ def write_checkpoint(path: str | Path, revision: int, *,
             try:
                 try:
                     handle = os.fdopen(fd, "wb")
+                except OSError as exc:
+                    os.close(fd)
+                    raise SecurityError("Checkpoint staging writer could not be opened safely") from exc
                 except BaseException:
                     os.close(fd)
                     raise
