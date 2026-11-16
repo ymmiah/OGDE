@@ -108,3 +108,19 @@ class StagingDurabilityTests(unittest.TestCase):
             self.assertFalse(destination.exists())
             self.assertEqual(list(Path(directory).glob(".ogde-checkpoint-*")), [])
 
+
+    @unittest.skipUnless(os.name == "posix", "POSIX descriptor publication only")
+    def test_staging_fdopen_failure_fails_closed_without_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "checkpoint.json"
+            with patch("ogde.m3_checkpoint.os.fdopen",
+                       side_effect=OSError("simulated staging fdopen failure")), \
+                 patch("ogde.m3_checkpoint.os.link") as publish:
+                with self.assertRaisesRegex(
+                    SecurityError, "staging writer could not be opened safely"
+                ):
+                    write_checkpoint(destination, 1)
+            publish.assert_not_called()
+            self.assertFalse(destination.exists())
+            self.assertEqual(list(Path(directory).glob(".ogde-checkpoint-*")), [])
+
