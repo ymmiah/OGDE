@@ -68,7 +68,7 @@ class CheckpointFailClosedTests(unittest.TestCase):
             target = Path(directory) / "checkpoint.json"
             with mock.patch("ogde.m3_checkpoint.os.fsync",
                             side_effect=OSError("synthetic staging fsync failure")):
-                with self.assertRaises(OSError):
+                with self.assertRaisesRegex(SecurityError, "staging write or sync failed"):
                     write_checkpoint(target, 1)
             self.assertEqual(list(Path(directory).iterdir()), [])
 
