@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from ogde.core import SecurityError
 from ogde.m3_checkpoint import write_checkpoint
 
 
@@ -25,8 +26,11 @@ class StagingDescriptorTests(unittest.TestCase):
                 raise OSError("synthetic fdopen failure")
 
             with mock.patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_fdopen):
-                with self.assertRaisesRegex(OSError, "synthetic fdopen failure"):
+                with self.assertRaisesRegex(SecurityError, "staging writer could not be opened safely") as raised:
                     write_checkpoint(target, 1)
+
+            self.assertIsInstance(raised.exception.__cause__, OSError)
+            self.assertEqual(str(raised.exception.__cause__), "synthetic fdopen failure")
 
             self.assertEqual(len(captured), 1)
             with self.assertRaises(OSError):
