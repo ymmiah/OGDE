@@ -27,3 +27,46 @@ class StagingDurabilityTests(unittest.TestCase):
             self.assertEqual(
                 list(Path(directory).glob(".ogde-checkpoint-*")), []
             )
+
+    @unittest.skipUnless(os.name == "posix", "POSIX descriptor publication only")
+    def test_staging_write_failure_fails_closed_and_cleans_up(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "checkpoint.json"
+            original_fdopen = os.fdopen
+
+            class FailingWriter:
+                def __init__(self, handle):
+                    self.handle = handle
+
+                def __enter__(self):
+                    self.handle.__enter__()
+                    return self
+
+                def __exit__(self, *args):
+                    return self.handle.__exit__(*args)
+
+                def write(self, data):
+                    raise OSError("simulated staging write failure")
+
+                def flush(self):
+                    return self.handle.flush()
+
+                def fileno(self):
+                    return self.handle.fileno()
+
+            def failing_fdopen(fd, mode):
+                handle = original_fdopen(fd, mode)
+                return FailingWriter(handle) if mode == "wb" else handle
+
+            with patch("ogde.m3_checkpoint.os.fdopen", side_effect=failing_fdopen), \
+                 patch("ogde.m3_checkpoint.os.link") as publish:
+                with self.assertRaisesRegex(
+                    SecurityError, "staging write or sync failed"
+                ):
+                    write_checkpoint(destination, 1)
+            publish.assert_not_called()
+            self.assertFalse(destination.exists())
+            self.assertEqual(
+                list(Path(directory).glob(".ogde-checkpoint-*")), []
+            )
+
