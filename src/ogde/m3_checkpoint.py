@@ -254,10 +254,15 @@ def write_checkpoint(path: str | Path, revision: int, *,
                 except BaseException:
                     os.close(fd)
                     raise
-                with handle:
-                    handle.write(raw)
-                    handle.flush()
-                    os.fsync(handle.fileno())
+                try:
+                    with handle:
+                        handle.write(raw)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                except OSError as exc:
+                    raise SecurityError(
+                        "Checkpoint staging write or sync failed; publication not attempted"
+                    ) from exc
                 # The target must not be replaced or overwritten.
                 try:
                     os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
