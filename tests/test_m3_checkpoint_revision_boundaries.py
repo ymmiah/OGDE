@@ -36,6 +36,19 @@ class CheckpointRevisionBoundaryTests(unittest.TestCase):
             self.assertEqual(digest, checkpoint_digest(1))
             self.assertEqual(read_checkpoint(path, expected_digest=digest), 1)
 
+    def test_read_requires_exact_lowercase_external_digest(self):
+        # A locally valid checkpoint must never be accepted without the
+        # independently retained, exact SHA-256 digest.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            digest = write_checkpoint(path, 1)
+            for invalid in (None, False, 0, "", digest.upper(),
+                            digest[:-1], digest + "0", "g" * 64):
+                with self.subTest(expected_digest=repr(invalid)):
+                    with self.assertRaises(SecurityError):
+                        read_checkpoint(path, expected_digest=invalid)
+            self.assertEqual(read_checkpoint(path, expected_digest=digest), 1)
+
     def test_maximum_revision_round_trip_requires_external_digest(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checkpoint.json"
