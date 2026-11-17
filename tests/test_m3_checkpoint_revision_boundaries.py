@@ -18,6 +18,24 @@ class CheckpointRevisionBoundaryTests(unittest.TestCase):
                 with self.assertRaises(SecurityError):
                     checkpoint_digest(invalid)
 
+    def test_write_rejects_invalid_new_revision_without_side_effects(self):
+        invalid_revisions = (False, True, 0, -1, 2**53 + 1, 1.0, "1", None)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            for revision in invalid_revisions:
+                with self.subTest(revision=repr(revision)):
+                    with self.assertRaises(SecurityError):
+                        write_checkpoint(path, revision)
+                    self.assertFalse(path.exists())
+                    self.assertEqual(list(Path(directory).glob(".ogde-checkpoint-*")), [])
+
+    def test_initial_revision_with_zero_previous_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            digest = write_checkpoint(path, 1, previous_revision=0)
+            self.assertEqual(digest, checkpoint_digest(1))
+            self.assertEqual(read_checkpoint(path, expected_digest=digest), 1)
+
     def test_maximum_revision_round_trip_requires_external_digest(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checkpoint.json"
