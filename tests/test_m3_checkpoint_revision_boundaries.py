@@ -62,6 +62,11 @@ class CheckpointRevisionBoundaryTests(unittest.TestCase):
             b'{"revision":1.0,"schema_version":1}\n',
             b'{"revision":1,"schema_version":true}\n',
             b'{"revision":1,"revision":2,"schema_version":1}\n',
+            b'{"revision":1,"schema_version":1}\n\n',  # trailing data
+            b'{"revision":1,"schema_version":1',  # truncated JSON
+            b'{"revision":1,"schema_version":1}\n\xff',  # invalid UTF-8
+            b'{"revision":9007199254740993,"schema_version":1}\n',  # unsafe integer range
+            b'{"revision":0,"schema_version":1}\n',  # invalid initial revision
         )
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checkpoint.json"
