@@ -49,6 +49,31 @@ class CheckpointRevisionBoundaryTests(unittest.TestCase):
                         read_checkpoint(path, expected_digest=invalid)
             self.assertEqual(read_checkpoint(path, expected_digest=digest), 1)
 
+    def test_read_rejects_noncanonical_bytes_even_with_matching_external_digest(self):
+        # A matching digest proves only the supplied bytes; it cannot waive
+        # schema and canonical-encoding requirements.
+        import hashlib
+        invalid_payloads = (
+            b'{"schema_version":1,"revision":1}\n',  # wrong key order
+            b'{"revision":1, "schema_version":1}\n',  # whitespace
+            b'{"revision":1,"schema_version":1}',  # missing newline
+            b'{"revision":1,"schema_version":1,"extra":0}\n',
+            b'{"revision":true,"schema_version":1}\n',
+            b'{"revision":1.0,"schema_version":1}\n',
+            b'{"revision":1,"schema_version":true}\n',
+            b'{"revision":1,"revision":2,"schema_version":1}\n',
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            for raw in invalid_payloads:
+                with self.subTest(payload=raw):
+                    path.write_bytes(raw)
+                    path.chmod(0o600)
+                    with self.assertRaises(SecurityError):
+                        read_checkpoint(
+                            path, expected_digest=hashlib.sha256(raw).hexdigest()
+                        )
+
     def test_maximum_revision_round_trip_requires_external_digest(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checkpoint.json"
