@@ -251,20 +251,37 @@ def write_checkpoint(path: str | Path, revision: int, *,
             try:
                 try:
                     handle = os.fdopen(fd, "wb")
+                except OSError as exc:
+                    os.close(fd)
+                    raise SecurityError("Checkpoint staging writer could not be opened safely") from exc
                 except BaseException:
                     os.close(fd)
                     raise
-                with handle:
-                    handle.write(raw)
-                    handle.flush()
-                    os.fsync(handle.fileno())
+                try:
+                    with handle:
+                        handle.write(raw)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                except OSError as exc:
+                    raise SecurityError(
+                        "Checkpoint staging write or sync failed; publication not attempted"
+                    ) from exc
                 # The target must not be replaced or overwritten.
-                os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                try:
+                    os.link(tmp_name, p.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+                except OSError as exc:
+                    raise SecurityError("Checkpoint publication failed safely") from exc
             finally:
                 # Remove staging state before syncing the directory so a
                 # successful return covers both publication and cleanup.
-                os.unlink(tmp_name, dir_fd=parent_fd)
-            os.fsync(parent_fd)
+                try:
+                    os.unlink(tmp_name, dir_fd=parent_fd)
+                except OSError as exc:
+                    raise SecurityError("Checkpoint staging cleanup failed; publication state requires human review") from exc
+            try:
+                os.fsync(parent_fd)
+            except OSError as exc:
+                raise SecurityError("Checkpoint directory sync failed; publication durability unverified") from exc
         finally:
             os.close(parent_fd)
     else:

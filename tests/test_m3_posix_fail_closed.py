@@ -68,7 +68,7 @@ class CheckpointFailClosedTests(unittest.TestCase):
             target = Path(directory) / "checkpoint.json"
             with mock.patch("ogde.m3_checkpoint.os.fsync",
                             side_effect=OSError("synthetic staging fsync failure")):
-                with self.assertRaises(OSError):
+                with self.assertRaisesRegex(SecurityError, "staging write or sync failed"):
                     write_checkpoint(target, 1)
             self.assertEqual(list(Path(directory).iterdir()), [])
 
@@ -88,7 +88,7 @@ class CheckpointFailClosedTests(unittest.TestCase):
 
             with mock.patch("ogde.m3_checkpoint.os.fsync",
                             side_effect=fail_directory_sync):
-                with self.assertRaisesRegex(OSError, "directory durability"):
+                with self.assertRaisesRegex(SecurityError, "publication durability unverified"):
                     write_checkpoint(target, 1)
 
             self.assertEqual(len(calls), 2)
@@ -115,7 +115,7 @@ class CheckpointFailClosedTests(unittest.TestCase):
                                    side_effect=tracked_open):
                 with mock.patch.object(checkpoint.os, "link",
                                        side_effect=FileExistsError("synthetic race")):
-                    with self.assertRaises(FileExistsError):
+                    with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                         write_checkpoint(target, 1)
             self.assertEqual(len(opened), 1)
             with self.assertRaises(OSError):

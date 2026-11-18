@@ -261,7 +261,7 @@ class CheckpointTests(unittest.TestCase):
         from unittest.mock import patch
 
         with patch("ogde.m3_checkpoint.os.link", side_effect=OSError("simulated link failure")):
-            with self.assertRaises(OSError):
+            with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                 write_checkpoint(self.path, 4)
         self.assertFalse(self.path.exists())
         self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
@@ -284,7 +284,7 @@ class CheckpointTests(unittest.TestCase):
             return original_link(source, destination, **kwargs)
 
         with patch("ogde.m3_checkpoint.os.link", side_effect=competing_writer):
-            with self.assertRaises(FileExistsError):
+            with self.assertRaisesRegex(SecurityError, "Checkpoint publication failed safely"):
                 write_checkpoint(self.path, 4)
         self.assertEqual(self.path.read_bytes(), b"another writer's state")
         self.assertEqual(list(Path(self.tmp.name).glob(".ogde-checkpoint-*")), [])
@@ -605,7 +605,7 @@ class CheckpointTests(unittest.TestCase):
             return original_fsync(fd)
 
         with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_directory_sync):
-            with self.assertRaisesRegex(OSError, "directory durability failure"):
+            with self.assertRaisesRegex(SecurityError, "publication durability unverified"):
                 write_checkpoint(self.path, 12)
 
         # A failed return is not evidence that the target is absent. The
@@ -684,7 +684,7 @@ class CheckpointTests(unittest.TestCase):
             return handle
 
         with patch("ogde.m3_checkpoint.os.fdopen", side_effect=fail_write):
-            with self.assertRaisesRegex(OSError, "partial staging write"):
+            with self.assertRaisesRegex(SecurityError, "staging write or sync failed"):
                 write_checkpoint(self.path, 11)
         self.assertFalse(self.path.exists())
         self.assertEqual(list(self.path.parent.glob(".ogde-checkpoint-*")), [])
@@ -710,7 +710,7 @@ class CheckpointTests(unittest.TestCase):
             return real_fsync(fd)
 
         with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_staging_sync):
-            with self.assertRaises(OSError):
+            with self.assertRaisesRegex(SecurityError, "staging write or sync failed"):
                 write_checkpoint(self.path, 10)
         self.assertEqual(len(calls), 1)
         self.assertFalse(self.path.exists())
@@ -740,7 +740,7 @@ class CheckpointTests(unittest.TestCase):
             return real_fsync(fd)
 
         with patch("ogde.m3_checkpoint.os.fsync", side_effect=fail_directory_fsync):
-            with self.assertRaises(OSError):
+            with self.assertRaisesRegex(SecurityError, "publication durability unverified"):
                 write_checkpoint(self.path, 5)
         self.assertEqual(calls, 2)
         self.assertTrue(self.path.exists())
