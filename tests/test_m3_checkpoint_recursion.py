@@ -37,17 +37,22 @@ class CheckpointRecursionTests(unittest.TestCase):
                 read_checkpoint(path, expected_digest=digest)
 
 
-    def test_nested_object_with_matching_digest_is_security_error(self):
-        # Exercise object nesting separately from the array parser path.
-        raw = (b'{"x":' * 1100) + b"0" + (b"}" * 1100)
+    def test_json_decoder_recursion_failure_is_security_error(self):
+        # Object nesting beyond the decoder's recursion limit exceeds the
+        # 4096-byte checkpoint cap. Instead, inject the decoder failure
+        # after verifying a correctly sized, correctly hashed checkpoint.
+        raw = b'{"revision":1,"schema_version":1}\\n'
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checkpoint.json"
             path.write_bytes(raw)
             if os.name == "posix":
                 os.chmod(path, 0o600)
             digest = hashlib.sha256(raw).hexdigest()
-            with self.assertRaises(SecurityError):
-                read_checkpoint(path, expected_digest=digest)
+            with mock.patch("ogde.m3_checkpoint.json.loads",
+                            side_effect=RecursionError("simulated decoder depth")) as decoder:
+                with self.assertRaises(SecurityError):
+                    read_checkpoint(path, expected_digest=digest)
+            decoder.assert_called_once_with(raw)
 
 if __name__ == "__main__":
     unittest.main()
