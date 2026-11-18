@@ -115,7 +115,10 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
     parent_fd = -1
     try:
         if os.name == "posix":
-            parent_fd = _open_parent_chain(p.parent)
+            try:
+                parent_fd = _open_parent_chain(p.parent)
+            except OSError as exc:
+                raise SecurityError("Checkpoint directory missing or unsafe") from exc
             try:
                 opened_parent = os.fstat(parent_fd)
             except OSError as exc:
