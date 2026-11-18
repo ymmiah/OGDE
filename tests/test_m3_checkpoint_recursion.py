@@ -41,7 +41,7 @@ class CheckpointRecursionTests(unittest.TestCase):
         # Object nesting beyond the decoder's recursion limit exceeds the
         # 4096-byte checkpoint cap. Instead, inject the decoder failure
         # after verifying a correctly sized, correctly hashed checkpoint.
-        raw = b'{"revision":1,"schema_version":1}\\n'
+        raw = b'{"revision":1,"schema_version":1}\n'
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "checkpoint.json"
             path.write_bytes(raw)
