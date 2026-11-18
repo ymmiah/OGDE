@@ -179,7 +179,7 @@ def read_checkpoint(path: str | Path, *, expected_digest: str) -> int:
         if raw != _encode(revision):
             raise ValueError("Noncanonical checkpoint")
         return revision
-    except (ValueError, TypeError, UnicodeError) as exc:
+    except (ValueError, TypeError, UnicodeError, RecursionError) as exc:
         raise SecurityError("Invalid checkpoint contents") from exc
 
 
