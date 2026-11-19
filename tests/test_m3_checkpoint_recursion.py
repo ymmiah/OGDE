@@ -34,14 +34,19 @@ class CheckpointRecursionTests(unittest.TestCase):
             os.chmod(path, 0o600)
             digest = hashlib.sha256(raw).hexdigest()
             original_fstat = os.fstat
+            checkpoint_fds = []
             def failing_fstat(fd):
                 metadata = original_fstat(fd)
                 if stat.S_ISREG(metadata.st_mode):
+                    checkpoint_fds.append(fd)
                     raise OSError("simulated checkpoint metadata failure")
                 return metadata
             with mock.patch("ogde.m3_checkpoint.os.fstat", side_effect=failing_fstat):
                 with self.assertRaisesRegex(SecurityError, "metadata unavailable"):
                     read_checkpoint(path, expected_digest=digest)
+            self.assertEqual(len(checkpoint_fds), 1)
+            with self.assertRaises(OSError):
+                original_fstat(checkpoint_fds[0])
 
     @unittest.skipUnless(os.name == "posix", "POSIX descriptor traversal only")
     def test_checkpoint_fdopen_failure_is_security_error_and_closes_fd(self):
@@ -52,7 +57,6 @@ class CheckpointRecursionTests(unittest.TestCase):
             path.write_bytes(raw)
             os.chmod(path, 0o600)
             digest = hashlib.sha256(raw).hexdigest()
-            original_fdopen = os.fdopen
             opened = []
             def failing_fdopen(fd, mode):
                 opened.append(fd)
