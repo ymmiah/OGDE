@@ -37,6 +37,19 @@ class CheckpointRecursionTests(unittest.TestCase):
                 read_checkpoint(path, expected_digest=digest)
 
 
+    def test_digest_mismatch_rejects_before_json_decode(self):
+        # Unauthenticated checkpoint bytes must never reach the decoder.
+        raw = b'{"revision":1,"schema_version":1}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            path.write_bytes(raw)
+            if os.name == "posix":
+                os.chmod(path, 0o600)
+            with mock.patch("ogde.m3_checkpoint.json.loads") as decoder:
+                with self.assertRaisesRegex(SecurityError, "integrity mismatch"):
+                    read_checkpoint(path, expected_digest="0" * 64)
+            decoder.assert_not_called()
+
     def test_json_decoder_recursion_failure_is_security_error(self):
         # Object nesting beyond the decoder's recursion limit exceeds the
         # 4096-byte checkpoint cap. Instead, inject the decoder failure
