@@ -82,6 +82,20 @@ class CheckpointRecursionTests(unittest.TestCase):
                 read_checkpoint(path, expected_digest=digest)
 
 
+    def test_nested_object_with_matching_digest_is_security_error(self):
+        # Preserve object-nesting coverage independently of the array path.
+        # The payload stays below the checkpoint size cap.
+        raw = (b'{"x":' * 500) + b"0" + (b"}" * 500)
+        self.assertLessEqual(len(raw), 4096)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            path.write_bytes(raw)
+            if os.name == "posix":
+                os.chmod(path, 0o600)
+            digest = hashlib.sha256(raw).hexdigest()
+            with self.assertRaises(SecurityError):
+                read_checkpoint(path, expected_digest=digest)
+
     def test_digest_mismatch_rejects_before_json_decode(self):
         # Unauthenticated checkpoint bytes must never reach the decoder.
         raw = b'{"revision":1,"schema_version":1}\n'
