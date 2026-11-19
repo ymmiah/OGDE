@@ -1,6 +1,7 @@
 """Regression: malformed deeply nested checkpoint JSON fails closed."""
 import hashlib
 import os
+import stat
 import tempfile
 import unittest
 from unittest import mock
@@ -22,6 +23,25 @@ class CheckpointRecursionTests(unittest.TestCase):
                 with self.assertRaises(SecurityError) as raised:
                     read_checkpoint(path, expected_digest="0" * 64)
         self.assertIsInstance(raised.exception.__cause__, OSError)
+
+    @unittest.skipUnless(os.name == "posix", "POSIX descriptor traversal only")
+    def test_checkpoint_fstat_failure_is_security_error(self):
+        # A metadata read failure after a safe open must not leak OSError.
+        raw = b'{"revision":1,"schema_version":1}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            path.write_bytes(raw)
+            os.chmod(path, 0o600)
+            digest = hashlib.sha256(raw).hexdigest()
+            original_fstat = os.fstat
+            def failing_fstat(fd):
+                metadata = original_fstat(fd)
+                if stat.S_ISREG(metadata.st_mode):
+                    raise OSError("simulated checkpoint metadata failure")
+                return metadata
+            with mock.patch("ogde.m3_checkpoint.os.fstat", side_effect=failing_fstat):
+                with self.assertRaisesRegex(SecurityError, "metadata unavailable"):
+                    read_checkpoint(path, expected_digest=digest)
 
     def test_nested_json_with_matching_digest_is_security_error(self):
         # Small enough to satisfy the 4096-byte checkpoint limit, but deep
