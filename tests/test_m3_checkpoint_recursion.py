@@ -43,6 +43,27 @@ class CheckpointRecursionTests(unittest.TestCase):
                 with self.assertRaisesRegex(SecurityError, "metadata unavailable"):
                     read_checkpoint(path, expected_digest=digest)
 
+    @unittest.skipUnless(os.name == "posix", "POSIX descriptor traversal only")
+    def test_checkpoint_fdopen_failure_is_security_error_and_closes_fd(self):
+        # A failed stream wrapper must leave no raw checkpoint descriptor open.
+        raw = b'{"revision":1,"schema_version":1}\\n'.replace(b"\\n", b"\n")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            path.write_bytes(raw)
+            os.chmod(path, 0o600)
+            digest = hashlib.sha256(raw).hexdigest()
+            original_fdopen = os.fdopen
+            opened = []
+            def failing_fdopen(fd, mode):
+                opened.append(fd)
+                raise OSError("simulated stream wrapper failure")
+            with mock.patch("ogde.m3_checkpoint.os.fdopen", side_effect=failing_fdopen):
+                with self.assertRaisesRegex(SecurityError, "reader could not be opened"):
+                    read_checkpoint(path, expected_digest=digest)
+            self.assertEqual(len(opened), 1)
+            with self.assertRaises(OSError):
+                os.fstat(opened[0])
+
     def test_nested_json_with_matching_digest_is_security_error(self):
         # Small enough to satisfy the 4096-byte checkpoint limit, but deep
         # enough to exceed CPython's JSON decoder recursion threshold.
