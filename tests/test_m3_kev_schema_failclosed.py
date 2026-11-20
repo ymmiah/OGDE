@@ -44,6 +44,17 @@ class KEVSchemaFailClosedTests(unittest.TestCase):
                 with self.assertRaises(SecurityError):
                     _ingest([{"cveID": "CVE-2026-12345", "dateAdded": value}])
 
+    def test_non_object_rows_rejected_with_matching_digest(self):
+        for row in (None, "CVE-2026-12345", [], 42):
+            with self.subTest(row=row):
+                with self.assertRaisesRegex(SecurityError, "Malformed KEV vulnerability"):
+                    _ingest([row])
+
+    def test_entry_limit_rejected_with_matching_digest(self):
+        row = {"cveID": "CVE-2026-12345", "dateAdded": "2026-11-01"}
+        with self.assertRaisesRegex(SecurityError, "exceeds entry limit"):
+            _ingest([row] * 20001)
+
     def test_valid_local_snapshot_remains_untrusted(self):
         receipt = _ingest([{
             "cveID": "CVE-2026-12345",
