@@ -55,6 +55,21 @@ class KEVSchemaFailClosedTests(unittest.TestCase):
         with self.assertRaisesRegex(SecurityError, "exceeds entry limit"):
             _ingest([row] * 20001)
 
+    def test_incorrect_or_malformed_external_digest_rejected(self):
+        document = {"vulnerabilities": [{"cveID": "CVE-2026-12345", "dateAdded": "2026-11-01"}]}
+        valid = hashlib.sha256(canonical(document)).hexdigest()
+        for supplied in (None, 123, "", valid.upper(), valid[:-1], "0" * 64):
+            with self.subTest(expected_sha256=supplied):
+                with self.assertRaises(SecurityError):
+                    ingest_kev_snapshot(document, expected_sha256=supplied)
+
+    def test_embedded_digest_cannot_override_independent_pin(self):
+        document = {"vulnerabilities": [{"cveID": "CVE-2026-12345", "dateAdded": "2026-11-01"}]}
+        independent_pin = hashlib.sha256(canonical(document)).hexdigest()
+        document["sha256"] = hashlib.sha256(canonical(document)).hexdigest()
+        with self.assertRaisesRegex(SecurityError, "digest mismatch"):
+            ingest_kev_snapshot(document, expected_sha256=independent_pin)
+
     def test_valid_local_snapshot_remains_untrusted(self):
         receipt = _ingest([{
             "cveID": "CVE-2026-12345",
