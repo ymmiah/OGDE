@@ -38,6 +38,12 @@ class KEVSchemaFailClosedTests(unittest.TestCase):
                 with self.assertRaises(SecurityError):
                     _ingest([row])
 
+    def test_invalid_calendar_and_noncanonical_dates_rejected(self):
+        for value in ("2026-02-30", "2026-13-01", "2026-11-1", "20261101", "2026-11-01T00:00:00"):
+            with self.subTest(date_added=value):
+                with self.assertRaises(SecurityError):
+                    _ingest([{"cveID": "CVE-2026-12345", "dateAdded": value}])
+
     def test_valid_local_snapshot_remains_untrusted(self):
         receipt = _ingest([{
             "cveID": "CVE-2026-12345",
