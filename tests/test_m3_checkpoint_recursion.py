@@ -25,6 +25,34 @@ class CheckpointRecursionTests(unittest.TestCase):
         self.assertIsInstance(raised.exception.__cause__, OSError)
 
     @unittest.skipUnless(os.name == "posix", "POSIX descriptor traversal only")
+    def test_parent_fstat_failure_is_security_error_and_closes_fd(self):
+        # A failure to inspect the opened parent must fail closed and
+        # release its directory descriptor before the checkpoint is opened.
+        raw = b'{"revision":1,"schema_version":1}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "checkpoint.json"
+            path.write_bytes(raw)
+            os.chmod(path, 0o600)
+            digest = hashlib.sha256(raw).hexdigest()
+            original_fstat = os.fstat
+            parent_fds = []
+
+            def failing_parent_fstat(fd):
+                metadata = original_fstat(fd)
+                if stat.S_ISDIR(metadata.st_mode):
+                    parent_fds.append(fd)
+                    raise OSError("simulated parent metadata failure")
+                return metadata
+
+            with mock.patch("ogde.m3_checkpoint.os.fstat",
+                            side_effect=failing_parent_fstat):
+                with self.assertRaisesRegex(SecurityError, "directory missing or unsafe"):
+                    read_checkpoint(path, expected_digest=digest)
+            self.assertEqual(len(parent_fds), 1)
+            with self.assertRaises(OSError):
+                original_fstat(parent_fds[0])
+
+    @unittest.skipUnless(os.name == "posix", "POSIX descriptor traversal only")
     def test_checkpoint_fstat_failure_is_security_error(self):
         # A metadata read failure after a safe open must not leak OSError.
         raw = b'{"revision":1,"schema_version":1}\n'
