@@ -70,6 +70,21 @@ class KEVSchemaFailClosedTests(unittest.TestCase):
         with self.assertRaisesRegex(SecurityError, "digest mismatch"):
             ingest_kev_snapshot(document, expected_sha256=independent_pin)
 
+    def test_missing_or_invalid_vulnerability_collection_rejected(self):
+        for document in ({}, {"vulnerabilities": None}, {"vulnerabilities": {}},
+                         {"vulnerabilities": "CVE-2026-12345"}):
+            with self.subTest(document=document):
+                digest = hashlib.sha256(canonical(document)).hexdigest()
+                with self.assertRaisesRegex(SecurityError, "Expected a CISA-format KEV JSON snapshot"):
+                    ingest_kev_snapshot(document, expected_sha256=digest)
+
+    def test_non_object_snapshot_rejected_with_independent_digest(self):
+        for document in (None, [], "snapshot", 42):
+            with self.subTest(document=document):
+                digest = hashlib.sha256(canonical(document)).hexdigest()
+                with self.assertRaisesRegex(SecurityError, "KEV snapshot must be an object"):
+                    ingest_kev_snapshot(document, expected_sha256=digest)
+
     def test_valid_local_snapshot_remains_untrusted(self):
         receipt = _ingest([{
             "cveID": "CVE-2026-12345",
