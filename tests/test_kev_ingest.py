@@ -41,5 +41,23 @@ class KEVIngestTests(unittest.TestCase):
             ingest_kev_snapshot(self.snapshot, expected_sha256="ABC")
 
 
+    def test_matching_digest_does_not_override_invalid_cve_schema(self):
+        doc = {"vulnerabilities": [{"cveID": "not-a-cve", "dateAdded": "2026-10-31"}]}
+        digest = hashlib.sha256(canonical(doc)).hexdigest()
+        with self.assertRaises(SecurityError):
+            ingest_kev_snapshot(doc, expected_sha256=digest)
+
+    def test_matching_digest_does_not_override_noncanonical_date(self):
+        doc = {"vulnerabilities": [{"cveID": "CVE-2026-12345", "dateAdded": "2026-1-2"}]}
+        digest = hashlib.sha256(canonical(doc)).hexdigest()
+        with self.assertRaises(SecurityError):
+            ingest_kev_snapshot(doc, expected_sha256=digest)
+
+    def test_matching_digest_does_not_override_invalid_container(self):
+        doc = {"vulnerabilities": {"CVE-2026-12345": {"dateAdded": "2026-10-31"}}}
+        digest = hashlib.sha256(canonical(doc)).hexdigest()
+        with self.assertRaises(SecurityError):
+            ingest_kev_snapshot(doc, expected_sha256=digest)
+
 if __name__ == "__main__":
     unittest.main()
