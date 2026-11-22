@@ -17,6 +17,14 @@ class KEVIngestTests(unittest.TestCase):
         self.assertEqual(result["decision"], "human-review")
         self.assertEqual(result["kev_cves"], ["CVE-2026-12345"])
 
+    def test_in_memory_snapshot_over_10_mib_rejected_even_with_matching_digest(self):
+        # Direct callers must have the same size boundary as read_json().
+        doc = dict(self.snapshot)
+        doc["padding"] = "x" * (10 * 1024 * 1024)
+        digest = hashlib.sha256(canonical(doc)).hexdigest()
+        with self.assertRaisesRegex(SecurityError, "10 MiB"):
+            ingest_kev_snapshot(doc, expected_sha256=digest)
+
     def test_wrong_digest_rejected(self):
         with self.assertRaises(SecurityError):
             ingest_kev_snapshot(self.snapshot, expected_sha256="0" * 64)
