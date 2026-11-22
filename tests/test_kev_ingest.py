@@ -42,7 +42,7 @@ class KEVIngestTests(unittest.TestCase):
             ingest_kev_snapshot(doc, expected_sha256="0" * 64)
 
     def test_malformed_ransomware_signal_rejected_even_with_matching_digest(self):
-        for signal in ("known", "Yes", True, 1, [], {}):
+        for signal in ("known", "Yes", None, True, 1, [], {}):
             with self.subTest(signal=signal):
                 doc = {"vulnerabilities": [{
                     "cveID": "CVE-2026-12345",
