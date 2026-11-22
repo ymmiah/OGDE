@@ -9,7 +9,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from .core import SecurityError, read_json, canonical
+from .core import MAX_JSON_BYTES, SecurityError, read_json, canonical
 from .kev import kev_index
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -22,7 +22,10 @@ def ingest_kev_snapshot(data: object, *, expected_sha256: str) -> dict:
     if not isinstance(data, dict):
         raise SecurityError("KEV snapshot must be an object")
     # Embedded hashes or URLs cannot serve as independent trust anchors.
-    actual = hashlib.sha256(canonical(data)).hexdigest()
+    encoded = canonical(data)
+    if len(encoded) > MAX_JSON_BYTES:
+        raise SecurityError("KEV snapshot exceeds the 10 MiB limit")
+    actual = hashlib.sha256(encoded).hexdigest()
     if actual != expected_sha256:
         raise SecurityError("KEV snapshot digest mismatch")
     entries = kev_index(data)
