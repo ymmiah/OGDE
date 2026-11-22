@@ -22,7 +22,7 @@ def kev_index(data: object) -> dict:
         if row["cveID"] in index:
             raise SecurityError("Duplicate KEV CVE")
         ransomware = row.get("knownRansomwareCampaignUse")
-        if ransomware is not None and ransomware not in ("Known", "Unknown"):
+        if "knownRansomwareCampaignUse" in row and (not isinstance(ransomware, str) or ransomware not in ("Known", "Unknown")):
             raise SecurityError("Invalid KEV ransomware campaign signal")
         index[row["cveID"]] = {
             "cve": row["cveID"],
