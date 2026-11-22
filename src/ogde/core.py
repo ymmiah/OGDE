@@ -45,7 +45,7 @@ def read_json(path: str | Path) -> object:
 def canonical(obj: object) -> bytes:
     try:
         return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, RecursionError, OverflowError) as exc:
         raise SecurityError(f"Cannot canonicalise JSON: {exc}") from exc
 
 
