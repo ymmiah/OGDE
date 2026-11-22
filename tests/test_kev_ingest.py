@@ -25,6 +25,22 @@ class KEVIngestTests(unittest.TestCase):
         with self.assertRaisesRegex(SecurityError, "10 MiB"):
             ingest_kev_snapshot(doc, expected_sha256=digest)
 
+    def test_cyclic_snapshot_rejected_as_security_error(self):
+        doc = {"vulnerabilities": []}
+        doc["cycle"] = doc
+        with self.assertRaises(SecurityError):
+            ingest_kev_snapshot(doc, expected_sha256="0" * 64)
+
+    def test_excessively_nested_snapshot_rejected_as_security_error(self):
+        doc = {"vulnerabilities": []}
+        nested = doc
+        for _ in range(1200):
+            child = {}
+            nested["child"] = child
+            nested = child
+        with self.assertRaises(SecurityError):
+            ingest_kev_snapshot(doc, expected_sha256="0" * 64)
+
     def test_wrong_digest_rejected(self):
         with self.assertRaises(SecurityError):
             ingest_kev_snapshot(self.snapshot, expected_sha256="0" * 64)
