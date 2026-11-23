@@ -83,6 +83,25 @@ class KEVIngestTests(unittest.TestCase):
         with self.assertRaisesRegex(SecurityError, "future"):
             ingest_kev_snapshot(doc, expected_sha256=digest)
 
+    def test_utc_today_accepted_and_tomorrow_rejected(self):
+        # Exercise the boundary without relying on a fixed calendar date.
+        from datetime import datetime, timedelta, timezone
+        today = datetime.now(timezone.utc).date()
+        for offset, should_reject in ((0, False), (1, True)):
+            with self.subTest(offset=offset):
+                doc = {"vulnerabilities": [{
+                    "cveID": "CVE-2026-12345",
+                    "dateAdded": (today + timedelta(days=offset)).isoformat(),
+                }]}
+                digest = hashlib.sha256(canonical(doc)).hexdigest()
+                if should_reject:
+                    with self.assertRaisesRegex(SecurityError, "future"):
+                        ingest_kev_snapshot(doc, expected_sha256=digest)
+                else:
+                    receipt = ingest_kev_snapshot(doc, expected_sha256=digest)
+                    self.assertFalse(receipt["publisher_authenticated"])
+                    self.assertEqual(receipt["decision"], "human-review")
+
     def test_missing_date_rejected(self):
         doc = {"vulnerabilities": [{"cveID": "CVE-2026-12345"}]}
         with self.assertRaises(SecurityError):
