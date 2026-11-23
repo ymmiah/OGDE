@@ -77,6 +77,12 @@ class KEVIngestTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             ingest_kev_snapshot(doc, expected_sha256=hashlib.sha256(canonical(doc)).hexdigest())
 
+    def test_future_date_rejected_even_with_matching_digest(self):
+        doc = {"vulnerabilities": [{"cveID": "CVE-2026-12345", "dateAdded": "2999-01-01"}]}
+        digest = hashlib.sha256(canonical(doc)).hexdigest()
+        with self.assertRaisesRegex(SecurityError, "future"):
+            ingest_kev_snapshot(doc, expected_sha256=digest)
+
     def test_missing_date_rejected(self):
         doc = {"vulnerabilities": [{"cveID": "CVE-2026-12345"}]}
         with self.assertRaises(SecurityError):
