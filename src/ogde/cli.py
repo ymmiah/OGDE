@@ -15,6 +15,7 @@ from .osv import scan_osv
 from .finding import build_report, load_report_inputs, render_markdown
 from .immunity import add_publisher, assess, safe_save, safe_save_text
 from .inventory import collect_inventory
+from .kev_ingest import ingest_kev_file
 from .policy import markdown_report
 
 
@@ -62,6 +63,10 @@ def parser() -> argparse.ArgumentParser:
     collect.add_argument("--composer-lock", help="Path to a file named composer.lock. Names and versions only.")
     collect.add_argument("--package-lock", help="Path to a file named package-lock.json. Names and versions only.")
     collect.add_argument("--out", help="Write the inventory here with private permissions. Printed locally if omitted.")
+    kev = sub.add_parser("ingest-kev", help="Validate a local KEV snapshot against an independently supplied SHA-256 digest; no publisher authentication or network access.")
+    kev.add_argument("--file", required=True, help="Local KEV JSON snapshot.")
+    kev.add_argument("--sha256", required=True, help="Independently obtained lowercase SHA-256 of canonical JSON; not publisher authentication.")
+    kev.add_argument("--out", help="Write the review-only receipt locally with private permissions.")
     report = sub.add_parser("report", help="Validate local findings, apply VEX, and write a prioritised report. No network.")
     report.add_argument("--findings", required=True, help="Local findings JSON. It is not fetched.")
     report.add_argument("--vex", help="Local OpenVEX JSON used to suppress not_affected statements.")
@@ -73,6 +78,14 @@ def parser() -> argparse.ArgumentParser:
 
 
 def run(args) -> int:
+    if args.cmd == "ingest-kev":
+        receipt = ingest_kev_file(args.file, expected_sha256=args.sha256)
+        if args.out:
+            safe_save(args.out, receipt)
+            print(f"Untrusted-publisher KEV receipt written locally to {args.out}")
+        else:
+            print(json.dumps(receipt, indent=2))
+        return 0
     if args.cmd == "trust-add":
         receipt = add_publisher(args.registry, public=args.public, publisher_id=args.publisher_id,
                                 feed_id=args.feed_id, acknowledged=args.confirm_trust_anchor)
