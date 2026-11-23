@@ -79,6 +79,11 @@ def parser() -> argparse.ArgumentParser:
 
 def run(args) -> int:
     if args.cmd == "ingest-kev":
+        # A receipt must never replace its evidence, including via symlinks or hardlinks.
+        if args.out:
+            source, destination = Path(args.file), Path(args.out)
+            if source.resolve() == destination.resolve() or (destination.exists() and source.samefile(destination)):
+                raise SecurityError("KEV receipt output must differ from the input snapshot")
         receipt = ingest_kev_file(args.file, expected_sha256=args.sha256)
         if args.out:
             safe_save(args.out, receipt)
