@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .core import MAX_JSON_BYTES, SecurityError, read_json, canonical
@@ -39,6 +39,8 @@ def ingest_kev_snapshot(data: object, *, expected_sha256: str) -> dict:
             raise SecurityError("Invalid KEV dateAdded") from exc
         if parsed.isoformat() != date_added:
             raise SecurityError("KEV dateAdded must be YYYY-MM-DD")
+        if parsed > datetime.now(timezone.utc).date():
+            raise SecurityError("KEV dateAdded cannot be in the future")
     return {
         "kind": "ogde-kev-ingestion-receipt", "digest_sha256": actual,
         "entry_count": len(entries), "integrity_verified": True,
