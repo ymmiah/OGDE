@@ -30,6 +30,28 @@ class KEVCLIContractTests(unittest.TestCase):
                 run(parser().parse_args(["ingest-kev", "--file", str(source), "--sha256", "0" * 64]))
             self.assertEqual(json.loads(receipt_path.read_text(encoding="utf-8")), receipt)
 
+    def test_receipt_cannot_overwrite_source_or_alias(self):
+        snapshot = {"vulnerabilities": [{"cveID": "CVE-2026-12345", "dateAdded": "2026-10-31"}]}
+        digest = hashlib.sha256(canonical(snapshot)).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "kev.json"
+            original = json.dumps(snapshot)
+            source.write_text(original, encoding="utf-8")
+            alias = Path(directory) / "kev-link.json"
+            alias.symlink_to(source)
+            for destination in (source, alias):
+                with self.subTest(destination=str(destination)):
+                    args = parser().parse_args(["ingest-kev", "--file", str(source), "--sha256", digest, "--out", str(destination)])
+                    with self.assertRaisesRegex(SecurityError, "must differ"):
+                        run(args)
+                    self.assertEqual(source.read_text(encoding="utf-8"), original)
+            hardlink = Path(directory) / "kev-hardlink.json"
+            hardlink.hardlink_to(source)
+            args = parser().parse_args(["ingest-kev", "--file", str(source), "--sha256", digest, "--out", str(hardlink)])
+            with self.assertRaisesRegex(SecurityError, "must differ"):
+                run(args)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+
     def test_no_network_or_implicit_trust_options(self):
         args = parser().parse_args(["ingest-kev", "--file", "local.json", "--sha256", "a" * 64])
         self.assertEqual(args.cmd, "ingest-kev")
