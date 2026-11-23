@@ -83,6 +83,16 @@ class KEVIngestTests(unittest.TestCase):
         with self.assertRaisesRegex(SecurityError, "future"):
             ingest_kev_snapshot(doc, expected_sha256=digest)
 
+    def test_future_dated_entry_rejects_entire_mixed_snapshot(self):
+        # A valid earlier entry must not allow a later invalid entry through.
+        doc = {"vulnerabilities": [
+            {"cveID": "CVE-2026-12345", "dateAdded": "2026-10-31"},
+            {"cveID": "CVE-2026-67890", "dateAdded": "2999-01-01"},
+        ]}
+        digest = hashlib.sha256(canonical(doc)).hexdigest()
+        with self.assertRaisesRegex(SecurityError, "future"):
+            ingest_kev_snapshot(doc, expected_sha256=digest)
+
     def test_utc_today_accepted_and_tomorrow_rejected(self):
         # Exercise the boundary without relying on a fixed calendar date.
         from datetime import datetime, timedelta, timezone
